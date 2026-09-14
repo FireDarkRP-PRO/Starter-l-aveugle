@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Starter à l'aveugle - Règles</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            background-image: url("https://play.pokemonshowdown.com/fx/client-bg-charizards.jpg");
+            background-size: cover;        /* remplit tout l'écran */
+            background-position: center;   /* centre l'image */
+            background-repeat: no-repeat;  /* évite répétition */
+            background-attachment: fixed; /* effet classe au scroll */
+        }
+        header {
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        main {
+            max-width: 900px;
+            margin: 30px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2c3e50;
+        }
+        h2 {
+            margin-top: 30px;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .highlight {
+            background: #ecf0f1;
+            padding: 10px;
+            border-left: 5px solid #3498db;
+            margin: 15px 0;
+        }
+        ul {
+            margin-left: 20px;
+        }
+        footer {
+            text-align: center;
+            padding: 15px;
+            color: #777;
+            font-size: 0.9em;
+        }
+        #BackBtn{
+        top: 15px;
+        left: 15px;
+        padding: 10px 15px;
+        font-size: 14px;
+        }
+        
+        #BackBtn {
+          position: fixed;
+          background-color: #3c9c2c;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          z-index: 9999;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3); 
+          font-weight: bold;
+          letter-spacing: 1px;
+        }
+
+        #BackBtn:hover {
+          background-color: #2e7d22;
+        }
+    </style>
+</head>
+<body>
+  <a class="button" id="BackBtn" href="<?= webAppUrl ?>?page=starter" target="_blank">↩️ Retour</a>  
+
+
+<header>
+    <h1 style="color: #FFFFFF">Starter à l'aveugle 🎮</h1>
+    <p style="font-size: 20px">Règles du jeu</p>
+</header>
+
+<main>
+
+    <section class="section">
+        <h2 style="margin-top: 0px">📌 Principe du jeu</h2>
+        <p>
+            Starter à l’aveugle est un jeu à deux joueurs où chacun construit une équipe de 6 Pokémon,
+            sans choisir directement les siens.
+        </p>
+        <p>
+            À chaque manche, un joueur voit 3 Pokémon et doit les présenter à son adversaire selon une règle établi par les joueurs (catégorie Pokédex, groupe d’œuf, apparence, etc.).
+        </p>
+        <div class="highlight">
+            ⚠️ Il est interdit de se renseigner sur Internet ou auprès d’une personne externe au jeu ou d'utilisé la fonction de recherche lors de votre tour de choix ⚠️.
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>🔁 Déroulement d’une manche</h2>
+        <ul>
+            <li>Le joueur A voit 3 Pokémon.</li>
+            <li>Il les décrit selon une règle.</li>
+            <li>Le joueur B choisit : 1, 2 ou 3 (à l’aveugle).</li>
+            <li>Le Pokémon est ajouté à l’équipe du joueur B.</li>
+            <li>On inverse les rôles.</li>
+        </ul>
+    </section>
+
+    <section class="section">
+        <h2>📊 Nombre de manches</h2>
+        <p>
+            6 manches sont nécessaires pour obtenir une équipe complète.
+        </p>
+        <ul>
+            <li>12 Pokémon distribués au total</li>
+            <li>6 Pokémon par joueur</li>
+        </ul>
+    </section>
+
+    <section class="section">
+        <h2>👀 Règle de visibilité</h2>
+        <ul>
+            <li>Le joueur qui propose voit les Pokémon.</li>
+            <li>Le joueur qui choisit ne voit rien.</li>
+            <li>Il se base uniquement sur la règle et les indices donnés.</li>
+        </ul>
+    </section>
+
+    <section class="section">
+        <h2>🧠 Stratégie</h2>
+        <p>
+            Le joueur peut tenter de :
+        </p>
+        <ul>
+            <li>Piéger son adversaire</li>
+            <li>Lui donner un mauvais Pokémon si la règle le permet</li>
+            <li>Ou mélanger bon et mauvais choix</li>
+        </ul>
+
+    </section>
+
+    <section class="section">
+        <h2>⚔️ Fin du jeu</h2>
+        <p>
+            Une fois les équipes complètes :
+        </p>
+        <ul>
+            <li>Les joueurs peuvent aller sur <a href="https://pokemonshowdown.com/" target="_blank">Pokémon Showdown</a> pour créé leurs équipe à l'aide du TeamBuilder</li>
+            <li>Format conseillé : National Dex Ubers ou National Dex Doubles Ubers</li>
+            <li>Les évolutions (et formes altérnatives au bon vouloir des joueurs) sont autorisées</li>
+        </ul>
+        <p>
+            Le gagnant est celui qui remporte le combat.
+        </p>
+    </section>
+
+    <section class="section">
+        <h2>📖 Exemple de règle</h2>
+        <p>
+            Règle : Catégorie Pokédex
+        </p>
+        <ul>
+            <li>Le joueur A prend connaissance des trois Pokémon.</li>
+            <li>Le joueur A révèle la catégorie des trois Pokémon.</li>
+            <li>Ex : Manaphy → Pokémon Voyageur des mers</li>
+            <li>Le joueur B prend connaissance des trois catégories et fait son choix sur cette base.</li>
+            <li>Le joueur B met le Pokémon dans son équipe (il peut faire évoluer le Pokémon s’il le souhaite).</li>
+            <li>Ensuite, on inverse.</li>
+            <li>Jusqu’à avoir les deux équipes complètes.</li>
+        </ul>
+    </section>
+
+    <section class="section">
+        <h2>🎥 Vidéos explicatives</h2>
+        <p>
+            Playlist YouTube contenent plusieurs concept du starter à l'aveugle faisable :
+        </p>
+        <p>
+            <a href="https://youtube.com/playlist?list=PL4CB9Ctj8W3762lYvmpLt0Rw4iY8UzXBd" target="_blank">
+                Voir les vidéos
+            </a>
+        </p>
+    </section>
+
+</main>
+
+<footer>
+    <p>Créé pour le jeu "Starter à l'aveugle"</p>
+</footer>
+
+</body>
+</html>

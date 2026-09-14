@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>By FireDarkRP</title>
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  padding: 50px;
+  background-color: black;
+  background-image: url("https://lh3.googleusercontent.com/d/1xdEiS6UdcGRdI7rtsmxd-QVHDNOGhiYS");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+a.button {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 5px;
+    background-color: #ff3c3c;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+a.button:hover {
+    background-color: #cc0000;
+}
+h1, h2, hr{
+  color: white;
+}
+</style>
+</head>
+<body>
+
+<h1>By FireDarkRP</h1>
+
+<hr style="margin:20px 0;">
+<h2>Pokémon</h2>
+<!-- Boutons -->
+<a class="button" href="<?= webAppUrl ?>?page=starter" target="_blank">Starter à l'aveugle</a>
+<a class="button" href="<?= webAppUrl ?>?page=guessType" target="_blank">Trouve le type</a>
+<a class="button" href="<?= webAppUrl ?>?page=guessShout" target="_blank">Trouve avec le cri</a><br>
+<a class="button" href="<?= webAppUrl ?>?page=liensPokemon" target="_blank">Liens externes</a>
+
+
+
+<hr style="margin:20px 0;">
+
+<script>
+// Récupère l'URL actuelle (jusqu'à /exec)
+let baseUrl = window.location.origin + window.location.pathname;
+
+// Met à jour les boutons avec ?page=...
+document.getElementById('pokemonBtn').href = baseUrl + "?page=Pokemon";
+document.getElementById('liensBtn').href = baseUrl + "?page=liens";
+</script>
+
+</body>
+</html>
