@@ -95,45 +95,37 @@
     </style>
   </head>
   <body>
-    <a class="button" id="BackBtn" href="<?= webAppUrl ?>" target="_blank">↩️ Retour</a>
+    <a class="button" id="BackBtn" href="/">↩️ Retour</a>
 
-        
-
-
-    
     <div class="top-zone">
-    <h1>Guess the type</h1>
+      <h1>Guess the type</h1>
 
-    <h3>Générations</h3>
-    <div id="genContainer" style="margin-bottom:15px;"></div>
+      <h3>Générations</h3>
+      <div id="genContainer" style="margin-bottom:15px;"></div>
 
-    <br>
-    <button onclick="tirer()">Tirer les Pokémons</button>
+      <br>
+      <button onclick="tirer()">Tirer les Pokémons</button>
 
-    <div id="resultat"></div>
+      <div id="resultat"></div>
 
-    <div id="loader"></div>
+      <div id="loader"></div>
 
-    <div id="vies" style="font-size:20px; color:white; margin-top:10px;"></div>
+      <div id="vies" style="font-size:20px; color:white; margin-top:10px;"></div>
 
-    <br>
+      <br>
 
-    <select id="type1"></select>
-    <select id="type2"></select>
-    <br><br>
-    <button onclick="guessType()">Guess</button>
-    <div id="resultatGuess" style="margin-top:20px; font-size:26px; color:white;"></div>
-    <div id="badGuess1" style="color:white;"></div>
-    <div id="badGuess2" style="color:white;"></div>
-    <div id="badGuess3" style="color:white;"></div>
-    <div id="badGuess4" style="color:white;"></div>
-    <div id="badGuess5" style="color:white;"></div>
+      <select id="type1"></select>
+      <select id="type2"></select>
+      <br><br>
+      <button onclick="guessType()">Guess</button>
+      <div id="resultatGuess" style="margin-top:20px; font-size:26px; color:white;"></div>
+      <div id="badGuess1" style="color:white;"></div>
+      <div id="badGuess2" style="color:white;"></div>
+      <div id="badGuess3" style="color:white;"></div>
+      <div id="badGuess4" style="color:white;"></div>
+      <div id="badGuess5" style="color:white;"></div>
+    </div>
 
-    <br><br>
-
-    
-
-    
     <script>
       let currentPokemon = null;
       let guessLocked = false;
@@ -142,17 +134,10 @@
       document.addEventListener("DOMContentLoaded", function() {
         chargerGenerations();
         chargerListePokemon();
-        chargerTypes(); // 🔥 AJOUT
-
-        document.getElementById("searchInput")
-          .addEventListener("keypress", function(e) {
-            if (e.key === "Enter") {
-              chercher();
-            }
-        });
+        chargerTypes();
       });
       
-      function tirer() {
+      async function tirer() {
         vies = 5;
         guessLocked = false;
 
@@ -179,8 +164,14 @@
         slotsContainer.innerHTML = "";
         loader.style.display = "block";
 
-        google.script.run.withSuccessHandler(function(pokemonsAndIndex) {
+        try {
+          const res = await fetch("/api/random-pokemon", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selectedGens: checked, nb: nb })
+          });
 
+          const pokemonsAndIndex = await res.json();
           loader.style.display = "none";
 
           let pokemons = pokemonsAndIndex[0]; 
@@ -209,35 +200,40 @@
 
             document.getElementById("resultatGuess").innerHTML = "";
           });
-
-        }).getRandomPokemon(checked, nb);
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur lors du tirage :", err);
+        }
       }
 
-      function chargerListePokemon() {
-        google.script.run.withSuccessHandler(function(noms) {
+      async function chargerListePokemon() {
+        try {
+          const res = await fetch("/api/pokemon-names");
+          const noms = await res.json();
 
           const datalist = document.getElementById("pokemonList");
-          datalist.innerHTML = "";
-
-          noms.forEach(nom => {
-            const option = document.createElement("option");
-            option.value = nom;
-            datalist.appendChild(option);
-          });
-
-        }).getAllPokemonNames();
+          if (datalist) {
+            datalist.innerHTML = "";
+            noms.forEach(nom => {
+              const option = document.createElement("option");
+              option.value = nom;
+              datalist.appendChild(option);
+            });
+          }
+        } catch (err) {
+          console.error("Erreur chargement noms :", err);
+        }
       }
 
-
-      function chargerGenerations() {
-
-        google.script.run.withSuccessHandler(function(gens) {
+      async function chargerGenerations() {
+        try {
+          const res = await fetch("/api/generations");
+          const gens = await res.json();
 
           const container = document.getElementById("genContainer");
           container.innerHTML = "";
 
           gens.forEach(line => {
-
             const genName = line.split(":")[0];
 
             const label = document.createElement("label");
@@ -250,8 +246,9 @@
 
             container.appendChild(label);
           });
-
-        }).getGenerations();
+        } catch (err) {
+          console.error("Erreur chargement générations :", err);
+        }
       }
 
       const types = [
@@ -273,12 +270,11 @@
           t2.innerHTML += `<option value="${t}">${t}</option>`;
         });
 
-        // 🔥 ajout "Aucun"
+        // ajout "Aucun"
         t2.innerHTML += `<option value="Aucun">Aucun</option>`;
       }
 
-
-      function guessType() {
+      async function guessType() {
 
         const resultDiv = document.getElementById("resultatGuess");
 
@@ -295,7 +291,6 @@
           return;
         }
 
-        // 🔥 si vide → Aucun
         if (!t2) t2 = "Aucun";
 
         const loader = document.getElementById("loader");
@@ -303,13 +298,14 @@
         resultDiv.innerHTML = "";
         loader.style.display = "block";
 
-        google.script.run.withSuccessHandler(function(data) {
+        try {
+          const res = await fetch(`/api/pokemon-caracteristiques?id=${currentPokemon.index}`);
+          const data = await res.json();
 
           loader.style.display = "none";
 
           let vraisTypes = [...data.types];
 
-          // 🔥 si mono-type → ajoute "Aucun"
           if (vraisTypes.length === 1) {
             vraisTypes.push("Aucun");
           }
@@ -317,7 +313,6 @@
           let message = "";
           let correct = false;
 
-          // ✅ check victoire (ordre non important)
           if (
             (t1 === vraisTypes[0] && t2 === vraisTypes[1]) ||
             (t1 === vraisTypes[1] && t2 === vraisTypes[0])
@@ -326,13 +321,11 @@
           }
 
           if (correct) {
-
             resultDiv.innerHTML = "🎉✅ Correct ! → " + vraisTypes.join(" / ");
             guessLocked = true;
             return;
           }
 
-          // ❌ sinon analyse
           const bonTypes = [];
           const mauvaisTypes = [];
 
@@ -348,16 +341,14 @@
             mauvaisTypes.push(t2);
           }
 
-          // 🎯 message intelligent
           if (bonTypes.length === 1) {
-            // 🔥 cas où le bon type est "Aucun"
             if (bonTypes[0] === "Aucun") {
               message = `✅ Le Pokémon n'a qu’un seul type`;
             } 
             else {
               message = `✅ ${bonTypes[0]} est correct`;
             }
-            // ❌ gestion du mauvais
+            
             if (mauvaisTypes[0] === "Aucun") {
               message += ` | ❌ Le Pokémon a un deuxième type`;
             } 
@@ -366,7 +357,6 @@
             }
           } 
           else {
-            // ❌ aucun bon type
             const fauxMessages = mauvaisTypes.map(t => {
               if (t === "Aucun") {
                 return "Le Pokémon a un deuxième type";
@@ -377,7 +367,6 @@
             message = "❌ " + fauxMessages.join(" | ❌ ");
           }
 
-          // ❤️ gestion vies
           vies--;
           afficherVies();
           if (vies <= 0) {
@@ -387,7 +376,6 @@
             resultDiv.innerHTML = "❌ Faux ! Il reste " + vies + " vie(s)";
           }
 
-          // 📜 historique
           if (document.getElementById("badGuess1").innerHTML === "") {
             document.getElementById("badGuess1").innerHTML = message;
           } else if (document.getElementById("badGuess2").innerHTML === "") {
@@ -399,8 +387,10 @@
           } else if (document.getElementById("badGuess5").innerHTML === "") {
             document.getElementById("badGuess5").innerHTML = message;
           }
-
-        }).getPokemonCaracteristiques(currentPokemon.index);
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur lors de la vérification :", err);
+        }
       }
 
       function afficherVies() {
@@ -409,6 +399,5 @@
       }
 
     </script>
-
   </body>
 </html>

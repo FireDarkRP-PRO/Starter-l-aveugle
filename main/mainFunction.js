@@ -1,24 +1,25 @@
-function doGet(e) {
-  var page = e.parameter.page || "index";
-  var template = HtmlService.createTemplateFromFile(page);
-  template.webAppUrl = ScriptApp.getService().getUrl();
-  return template.evaluate();
+const fs = require('fs');
+const path = require('path');
+
+// Definition des chemins vers les fichiers BDD
+const POKEMON_FILE_PATH = path.join(__dirname, '../BDD/pokémon.txt');
+const GEN_FILE_PATH = path.join(__dirname, '../BDD/genPokémon.txt');
+
+// Fonctions utilitaires de lecture de fichiers
+function getPokemonLines() {
+  const content = fs.readFileSync(POKEMON_FILE_PATH, 'utf-8');
+  return content.split("\n").map(p => p.trim()).filter(p => p);
 }
 
+function getGenLines() {
+  const content = fs.readFileSync(GEN_FILE_PATH, 'utf-8');
+  return content.split("\n").map(l => l.trim()).filter(l => l);
+}
 
-
-
-
-//Starter à l'aveugle
+// Starter à l'aveugle
 function getRandomPokemon(selectedGens, nb) {
-
-  const pokeFile = DriveApp.getFilesByName("pokemon.txt").next();
-  const pokeList = pokeFile.getBlob().getDataAsString()
-    .split("\n").map(p => p.trim()).filter(p => p);
-
-  const genFile = DriveApp.getFilesByName("genPokemon.txt").next();
-  const genLines = genFile.getBlob().getDataAsString()
-    .split("\n").map(l => l.trim()).filter(l => l);
+  const pokeList = getPokemonLines();
+  const genLines = getGenLines();
 
   let allowedIndexes = new Set();
 
@@ -27,13 +28,9 @@ function getRandomPokemon(selectedGens, nb) {
     pokeList.forEach((_, i) => allowedIndexes.add(i + 1));
   } else {
     genLines.forEach(line => {
-
       const [gen, range] = line.split(":");
-
       if (selectedGens.includes(gen)) {
-
         const [start, end] = range.split("-").map(Number);
-
         for (let i = start; i <= end; i++) {
           allowedIndexes.add(i);
         }
@@ -50,7 +47,6 @@ function getRandomPokemon(selectedGens, nb) {
   nb = Math.min(nb, 10) || 3;
 
   while (selectionName.length < nb && usedIndexes.size < filtered.length) {
-
     const idx = Math.floor(Math.random() * filtered.length);
 
     if (!usedIndexes.has(idx)) {
@@ -62,20 +58,15 @@ function getRandomPokemon(selectedGens, nb) {
       let name = parts.slice(1).join(" ");
 
       selectionName.push(name);
-      selectionIndex.push(parseInt(number));
+      selectionIndex.push(parseInt(number, 10));
     }
   }
 
   return [selectionName, selectionIndex];
 }
 
-
 function searchPokemon(input) {
-
-  const file = DriveApp.getFilesByName("pokemon.txt").next();
-  const content = file.getBlob().getDataAsString();
-  const list = content.split("\n").map(p => p.trim()).filter(p => p);
-
+  const list = getPokemonLines();
   input = input.toLowerCase().trim();
 
   // 🎮 EASTER EGG
@@ -88,12 +79,11 @@ function searchPokemon(input) {
   }
 
   for (let i = 0; i < list.length; i++) {
-
     const parts = list[i].split(" ");
     const number = parts[0];                 // "0001"
     const name = parts.slice(1).join(" ");   // "Bulbizarre"
 
-    const normalizedNumber = String(parseInt(number));
+    const normalizedNumber = String(parseInt(number, 10));
 
     if (
       name.toLowerCase() === input ||
@@ -102,7 +92,7 @@ function searchPokemon(input) {
     ) {
       return {
         name: name,
-        index: parseInt(number)
+        index: parseInt(number, 10)
       };
     }
   }
@@ -110,52 +100,45 @@ function searchPokemon(input) {
   return null;
 }
 
-
-function getPokemonCaracteristiques(pokemonId) {
-
+async function getPokemonCaracteristiques(pokemonId) {
   try {
+    const resPokemon = await fetch("https://pokeapi.co/api/v2/pokemon/" + pokemonId);
+    const pokemon = await resPokemon.json();
 
-    const pokemon = JSON.parse(
-      UrlFetchApp.fetch("https://pokeapi.co/api/v2/pokemon/" + pokemonId)
-      .getContentText()
-    );
-
-    const species = JSON.parse(
-      UrlFetchApp.fetch("https://pokeapi.co/api/v2/pokemon-species/" + pokemonId)
-      .getContentText()
-    );
+    const resSpecies = await fetch("https://pokeapi.co/api/v2/pokemon-species/" + pokemonId);
+    const species = await resSpecies.json();
 
     // Traductions
     const typeFR = {
-      normal:"Normal", fire:"Feu", water:"Eau",
-      electric:"Électrik", grass:"Plante", ice:"Glace",
-      fighting:"Combat", poison:"Poison", ground:"Sol",
-      flying:"Vol", psychic:"Psy", bug:"Insecte",
-      rock:"Roche", ghost:"Spectre", dragon:"Dragon",
-      dark:"Ténèbres", steel:"Acier", fairy:"Fée"
+      normal: "Normal", fire: "Feu", water: "Eau",
+      electric: "Électrik", grass: "Plante", ice: "Glace",
+      fighting: "Combat", poison: "Poison", ground: "Sol",
+      flying: "Vol", psychic: "Psy", bug: "Insecte",
+      rock: "Roche", ghost: "Spectre", dragon: "Dragon",
+      dark: "Ténèbres", steel: "Acier", fairy: "Fée"
     };
 
     const colorFR = {
-      green:"Vert", red:"Rouge", blue:"Bleu",
-      yellow:"Jaune", purple:"Violet",
-      pink:"Rose", brown:"Marron",
-      black:"Noir", white:"Blanc", gray:"Gris"
+      green: "Vert", red: "Rouge", blue: "Bleu",
+      yellow: "Jaune", purple: "Violet",
+      pink: "Rose", brown: "Marron",
+      black: "Noir", white: "Blanc", gray: "Gris"
     };
 
     // Génération (I, II, III…)
     const generation = species.generation.name
-      .replace("generation-","")
+      .replace("generation-", "")
       .toUpperCase();
 
     // Numéro de pokédex
-    const numero = pokemonId.toString().padStart(4, '0')
+    const numero = pokemonId.toString().padStart(4, '0');
 
     // Description FR propre
     const description = species.flavor_text_entries
       .find(f => f.language.name === "fr")
       ?.flavor_text
-      .replace(/\f/g," ")
-      .replace(/\n/g," ")
+      .replace(/\f/g, " ")
+      .replace(/\n/g, " ")
       || "Aucune description disponible pour ce pokémon, rendez-vous sur Poképédia pour connaitre sa description pokédex";
 
     return {
@@ -168,7 +151,6 @@ function getPokemonCaracteristiques(pokemonId) {
       color: colorFR[species.color.name] || species.color.name,
       captureRate: species.capture_rate,
       description: description,
-
       cry: pokemon.cries?.latest || pokemon.cries?.legacy || ""
     };
 
@@ -177,40 +159,30 @@ function getPokemonCaracteristiques(pokemonId) {
   }
 }
 
-
-function getPokemonSensibilites(pokemonId) {
-
+async function getPokemonSensibilites(pokemonId) {
   try {
-
     const allTypes = [
-      "normal","fire","water","electric","grass","ice","fighting",
-      "poison","ground","flying","psychic","bug","rock","ghost",
-      "dragon","dark","steel","fairy"
+      "normal", "fire", "water", "electric", "grass", "ice", "fighting",
+      "poison", "ground", "flying", "psychic", "bug", "rock", "ghost",
+      "dragon", "dark", "steel", "fairy"
     ];
 
-    const response = UrlFetchApp.fetch(
-      "https://pokeapi.co/api/v2/pokemon/" + pokemonId
-    );
-
-    const data = JSON.parse(response.getContentText());
+    const response = await fetch("https://pokeapi.co/api/v2/pokemon/" + pokemonId);
+    const data = await response.json();
     const pokemonTypes = data.types.map(t => t.type.name);
 
     let multipliers = {};
     allTypes.forEach(t => multipliers[t] = 1);
-    
-    pokemonTypes.forEach(type => {
 
-      const typeResponse = UrlFetchApp.fetch(
-        "https://pokeapi.co/api/v2/type/" + type
-      );
-
-      const typeData = JSON.parse(typeResponse.getContentText());
+    for (const type of pokemonTypes) {
+      const typeResponse = await fetch("https://pokeapi.co/api/v2/type/" + type);
+      const typeData = await typeResponse.json();
       const dmg = typeData.damage_relations;
 
       dmg.double_damage_from.forEach(t => multipliers[t.name] *= 2);
       dmg.half_damage_from.forEach(t => multipliers[t.name] *= 0.5);
       dmg.no_damage_from.forEach(t => multipliers[t.name] *= 0);
-    });
+    }
 
     return multipliers;
 
@@ -219,19 +191,12 @@ function getPokemonSensibilites(pokemonId) {
   }
 }
 
-
-function getPokemonStats(pokemonId) {
-
+async function getPokemonStats(pokemonId) {
   try {
-
-    const response = UrlFetchApp.fetch(
-      "https://pokeapi.co/api/v2/pokemon/" + pokemonId
-    );
-
-    const data = JSON.parse(response.getContentText());
+    const response = await fetch("https://pokeapi.co/api/v2/pokemon/" + pokemonId);
+    const data = await response.json();
 
     const stats = {};
-
     data.stats.forEach(s => {
       stats[s.stat.name] = s.base_stat;
     });
@@ -243,11 +208,8 @@ function getPokemonStats(pokemonId) {
   }
 }
 
-
 function getAllPokemonNames() {
-  const file = DriveApp.getFilesByName("pokemon.txt").next();
-  const content = file.getBlob().getDataAsString();
-  
+  const content = fs.readFileSync(POKEMON_FILE_PATH, 'utf-8');
   return content
     .split("\n")
     .map(p => p.trim())
@@ -255,44 +217,14 @@ function getAllPokemonNames() {
     .map(p => p.split(" ").slice(1).join(" ")); // enlève le numéro
 }
 
-
 function getGenerations() {
-
-  const file = DriveApp.getFilesByName("genPokemon.txt").next();
-  const content = file.getBlob().getDataAsString();
-
-  return content
-    .split("\n")
-    .map(line => line.trim())
-    .filter(line => line);
+  return getGenLines();
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//Gess Type
+// Guess Type
 function getRandomPokemonForGame(selectedGens) {
-
-  const pokeFile = DriveApp.getFilesByName("pokemon.txt").next();
-  const pokeList = pokeFile.getBlob().getDataAsString()
-    .split("\n").map(p => p.trim()).filter(p => p);
-
-  const genFile = DriveApp.getFilesByName("genPokemon.txt").next();
-  const genLines = genFile.getBlob().getDataAsString()
-    .split("\n").map(l => l.trim()).filter(l => l);
+  const pokeList = getPokemonLines();
+  const genLines = getGenLines();
 
   let allowedIndexes = new Set();
 
@@ -301,7 +233,6 @@ function getRandomPokemonForGame(selectedGens) {
   } else {
     genLines.forEach(line => {
       const [gen, range] = line.split(":");
-
       if (selectedGens.includes(gen)) {
         const [start, end] = range.split("-").map(Number);
         for (let i = start; i <= end; i++) {
@@ -312,29 +243,24 @@ function getRandomPokemonForGame(selectedGens) {
   }
 
   const filtered = pokeList.filter((_, i) => allowedIndexes.has(i + 1));
-
   const random = filtered[Math.floor(Math.random() * filtered.length)];
   const parts = random.split(" ");
 
   return {
     name: parts.slice(1).join(" "),
-    index: parseInt(parts[0])
+    index: parseInt(parts[0], 10)
   };
 }
 
-
-
-
-//Cri
-function getRandomPokemonWithCry(gens) {
-
+// Cri
+async function getRandomPokemonWithCry(gens) {
   const data = getRandomPokemon(gens, 1);
   const name = data[0][0];
   const index = data[1][0];
 
   const url = "https://pokeapi.co/api/v2/pokemon/" + index;
-  const res = UrlFetchApp.fetch(url);
-  const json = JSON.parse(res.getContentText());
+  const res = await fetch(url);
+  const json = await res.json();
 
   return {
     name: name,
@@ -343,14 +269,10 @@ function getRandomPokemonWithCry(gens) {
   };
 }
 
-
-
-
-////////////
-function getPokemonData(index) {
+async function getPokemonData(index) {
   try {
-    const response = UrlFetchApp.fetch("https://pokeapi.co/api/v2/pokemon/" + index);
-    const data = JSON.parse(response.getContentText());
+    const response = await fetch("https://pokeapi.co/api/v2/pokemon/" + index);
+    const data = await response.json();
     return data;
   } catch (error) {
     console.error("Erreur API Pokémon:", error);
@@ -358,6 +280,16 @@ function getPokemonData(index) {
   }
 }
 
-
-
-
+// Export des fonctions si vous souhaitez les réutiliser dans d'autres fichiers Node.js
+module.exports = {
+  getRandomPokemon,
+  searchPokemon,
+  getPokemonCaracteristiques,
+  getPokemonSensibilites,
+  getPokemonStats,
+  getAllPokemonNames,
+  getGenerations,
+  getRandomPokemonForGame,
+  getRandomPokemonWithCry,
+  getPokemonData
+};

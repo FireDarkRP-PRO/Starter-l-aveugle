@@ -87,11 +87,8 @@
     </style>
   </head>
   <body>
-    <a class="button" id="BackBtn" href="<?= webAppUrl ?>" target="_blank">↩️ Retour</a>  
-        
+    <a class="button" id="BackBtn" href="/">↩️ Retour</a>  
 
-
-    
     <div class="top-zone">
       <h1>🎧 Trouve le Pokémon avec son cri</h1>
 
@@ -121,13 +118,9 @@
       <button onclick="toggleIndices()">Indices : ON</button>
       <div id="indices" style="margin-top:15px; color:white;"></div>
     </div>
-    
 
-
-
-    
     <script>
-      let currentPokemonData = null; // 🔥 stock des infos pour indices
+      let currentPokemonData = null; // stock des infos pour indices
       let currentPokemon = null;
       let vies = 9;
       let locked = false;
@@ -136,7 +129,7 @@
       let dejaGuesses = [];
 
       document.addEventListener("DOMContentLoaded", function() {
-        afficherVies()
+        afficherVies();
         chargerGenerations();
         chargerListePokemon();
         document.getElementById("searchInput")
@@ -145,10 +138,9 @@
               guessPokemon();
             }
         });
-
       });
       
-      function tirer() {
+      async function tirer() {
         currentPokemonData = null;
         vies = 9;
         erreurs = 0;
@@ -161,7 +153,6 @@
         document.getElementById("historique").innerHTML = "";
         document.getElementById("searchInput").value = "";
 
-        afficherVies();
         const container = document.getElementById("resultat");
         const loader = document.getElementById("loader");
 
@@ -174,7 +165,13 @@
           document.querySelectorAll("#genContainer input:checked")
         ).map(cb => cb.value);
 
-        google.script.run.withSuccessHandler(function(data) {
+        try {
+          const res = await fetch("/api/random-pokemon-with-cry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selectedGens: checked })
+          });
+          const data = await res.json();
 
           loader.style.display = "none";
 
@@ -183,22 +180,21 @@
             return;
           }
 
-          // Stock Pokémon actuel (important pour plus tard)
           currentPokemon = data;
 
-          // 🔊 Affichage du cri uniquement
           container.innerHTML = `
             <audio controls autoplay>
               <source src="${data.cry}" type="audio/ogg">
               Ton navigateur ne supporte pas l'audio.
             </audio>
           `;
-
-        }).getRandomPokemonWithCry(checked);
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur lors du tirage :", err);
+        }
       }
 
-
-      function guessPokemon() {
+      async function guessPokemon() {
         if (!currentPokemon || locked) {
           document.getElementById("guessResult").innerHTML = "Tire un cri avant ❗";
           return;
@@ -219,15 +215,15 @@
 
         if (!input) return;
 
-        // 🔄 reset + loader
         resultDiv.innerHTML = "";
         loader.style.display = "block";
 
-        google.script.run.withSuccessHandler(function(result) {
+        try {
+          const res = await fetch(`/api/search-pokemon?name=${encodeURIComponent(input)}`);
+          const result = await res.json();
 
           loader.style.display = "none";
 
-          // ❌ Pokémon invalide (NE COMPTE PAS)
           if (!result) {
             resultDiv.innerHTML = "⚠️ Veuillez entrer un Pokémon valide";
             return;
@@ -235,9 +231,7 @@
 
           dejaGuesses.push(result.name.toLowerCase());
 
-          // ✅ BONNE RÉPONSE
           if (result.index === currentPokemon.index) {
-
             resultDiv.innerHTML = `
               🎉 Bonne réponse !<br>
               C'était ${result.name}
@@ -249,33 +243,34 @@
             locked = true;
             return;
           }
-          // ❌ MAUVAIS
+
           vies--;
           erreurs++;
           afficherVies();
 
           ajouterHistorique(result.name);
 
-          // 🔥 récupérer infos pour indices
-          google.script.run.withSuccessHandler(function(data) {
-            currentPokemonData = data; //save
-            afficherIndices(data);
-          }).getPokemonCaracteristiques(currentPokemon.index);
+          const resData = await fetch(`/api/pokemon-caracteristiques?id=${currentPokemon.index}`);
+          const data = await resData.json();
+          currentPokemonData = data;
+          afficherIndices(data);
 
           if (vies <= 0) {
             resultDiv.innerHTML = `
               💀 Perdu !<br>
               C'était ${currentPokemon.name}
               <br><br>
-              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${result.index}.png"
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${currentPokemon.index}.png"
               style="width:140px;">
             `;
             locked = true;
           } else {
             resultDiv.innerHTML = `❌ Faux ! Il reste ${vies} vie(s)`;
           }
-
-        }).searchPokemon(input);
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur lors de la recherche :", err);
+        }
       }
 
       function afficherVies() {
@@ -288,9 +283,10 @@
         div.innerHTML += `❌ ${nom}<br>`;
       }
 
-
-      function chargerListePokemon() {
-        google.script.run.withSuccessHandler(function(noms) {
+      async function chargerListePokemon() {
+        try {
+          const res = await fetch("/api/pokemon-names");
+          const noms = await res.json();
 
           const datalist = document.getElementById("pokemonList");
           datalist.innerHTML = "";
@@ -300,20 +296,20 @@
             option.value = nom;
             datalist.appendChild(option);
           });
-
-        }).getAllPokemonNames();
+        } catch (err) {
+          console.error("Erreur chargement noms :", err);
+        }
       }
 
-
-      function chargerGenerations() {
-
-        google.script.run.withSuccessHandler(function(gens) {
+      async function chargerGenerations() {
+        try {
+          const res = await fetch("/api/generations");
+          const gens = await res.json();
 
           const container = document.getElementById("genContainer");
           container.innerHTML = "";
 
           gens.forEach(line => {
-
             const genName = line.split(":")[0];
 
             const label = document.createElement("label");
@@ -326,10 +322,10 @@
 
             container.appendChild(label);
           });
-
-        }).getGenerations();
+        } catch (err) {
+          console.error("Erreur chargement générations :", err);
+        }
       }
-
 
       function toggleIndices() {
         indicesActifs = !indicesActifs;
@@ -344,12 +340,10 @@
           return;
         }
 
-        // 🔥 SI ON RÉACTIVE → on réaffiche
         if (currentPokemonData) {
           afficherIndices(currentPokemonData);
         }
       }
-
 
       function afficherIndices(data) {
         if (!indicesActifs) return;
@@ -357,31 +351,25 @@
         const div = document.getElementById("indices");
         let html = "";
 
-        // 2 erreurs → génération
         if (erreurs >= 2) {
           html += `🌍 Génération : ${data.generation}<br>`;
         }
 
-        //Si 2 types alors 4 et 5 err Sinon 5 err
         if(data.types.length === 2){
-          // 4 erreurs → 1 type
           if (erreurs >= 4 && data.types.length >= 1) {
             html += `🔥 Type 1 : ${data.types[0]}<br>`;
           }
 
-          // 5 erreurs → 2 types
           if (erreurs >= 5 && data.types.length === 2) {
             html += `🔥 Type 2 : ${data.types[1]}<br>`;
           }
         }
         else{
-          // 5 erreurs → type
           if (erreurs >= 5) {
             html += `🔥 Type : ${data.types[0]}<br>`;
           }
         }
 
-        // 7 erreurs → silhouette
         if (erreurs >= 7) {
           html += `
             👤 Silhouette :<br>
@@ -395,6 +383,5 @@
       }
 
     </script>
-
   </body>
 </html>

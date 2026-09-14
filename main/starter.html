@@ -114,47 +114,42 @@
     </style>
   </head>
   <body>
-    <a class="button" id="rulesBtn" href="<?= webAppUrl ?>?page=starterRules" target="_blank">📜 Règles</a>
-    <a class="button" id="ShowdownBtn" href="https://pokemonshowdown.com/" target="_blank">⚔️ Pokémon Showdown</a>
-    <a class="button" id="BackBtn" href="<?= webAppUrl ?>" target="_blank">↩️ Retour</a>  
+    <a class="button" id="rulesBtn" href="/starterRules">📜 Règles</a>
+    <a class="button" id="ShowdownBtn" href="https://pokemonshowdown.com/" >⚔️ Pokémon Showdown</a>
+    <a class="button" id="BackBtn" href="/">↩️ Retour</a>  
         
-
-
-    
     <div class="top-zone">
-    <h1>Starter Pokémon à l'aveugle</h1>
+      <h1>Starter Pokémon à l'aveugle</h1>
 
-    <h3>Générations</h3>
-    <div id="genContainer" style="margin-bottom:15px;"></div>
+      <h3>Générations</h3>
+      <div id="genContainer" style="margin-bottom:15px;"></div>
 
-    <label style="font-weight: bold;">Nombre de Pokémon :</label>
-    <input type="number" id="nbPokemon" value="3" min="1" max="10" style="width:60px;">
-    <label>(Limité à 10)</label>
-    <br>
-    <label>(Formes régionales au choix)</label>
-    <br>
-    <button onclick="tirer()">Tirer les Pokémons</button>
+      <label style="font-weight: bold;">Nombre de Pokémon :</label>
+      <input type="number" id="nbPokemon" value="3" min="1" max="10" style="width:60px;">
+      <label>(Limité à 10)</label>
+      <br>
+      <label>(Formes régionales au choix)</label>
+      <br>
+      <button onclick="tirer()">Tirer les Pokémons</button>
 
-    <div id="resultat"></div>
+      <div id="resultat"></div>
 
-    <div id="loader"></div>
+      <div id="loader"></div>
 
-    <br><br>
+      <br><br>
 
-    <h2>Recherche</h2>
-    <input list="pokemonList" id="searchInput" placeholder="Nom du Pokémon">
-    <datalist id="pokemonList"></datalist>
+      <h2>Recherche</h2>
+      <input list="pokemonList" id="searchInput" placeholder="Nom du Pokémon">
+      <datalist id="pokemonList"></datalist>
 
-    <button onclick="chercher()">Rechercher</button>
+      <button onclick="chercher()">Rechercher</button>
 
-    <div id="searchResult" style="margin-top:20px; font-size:22px; font-weight:bold;"></div></div>
+      <div id="searchResult" style="margin-top:20px; font-size:22px; font-weight:bold;"></div>
+    </div>
+    
     <div id="caracteristiques" style="margin-top:30px;"></div>
     <div id="sensibilites" style="margin-top:30px;"></div>
     <div id="stats" style="margin-top:30px;"></div>
-    
-
-
-
     
     <script>
 
@@ -171,7 +166,7 @@
 
       });
       
-      function tirer() {
+      async function tirer() {
 
         const slotsContainer = document.getElementById("resultat");
         const loader = document.getElementById("loader");
@@ -188,8 +183,14 @@
         slotsContainer.innerHTML = "";
         loader.style.display = "block";
 
-        google.script.run.withSuccessHandler(function(pokemonsAndIndex) {
-
+        try {
+          const res = await fetch("/api/random-pokemon", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selectedGens: checked, nb: nb })
+          });
+          
+          const pokemonsAndIndex = await res.json();
           loader.style.display = "none";
 
           let pokemons = pokemonsAndIndex[0]; 
@@ -212,12 +213,14 @@
 
             slotsContainer.appendChild(div);
           });
-
-        }).getRandomPokemon(checked, nb);
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur tirage :", err);
+        }
       }
 
 
-      function chercher() {
+      async function chercher() {
         document.getElementById("caracteristiques").innerHTML = "";
         document.getElementById("sensibilites").innerHTML = "";
         document.getElementById("stats").innerHTML = "";
@@ -233,7 +236,15 @@
         sensDiv.innerHTML = "";
         loader.style.display = "block";
 
-        google.script.run.withSuccessHandler(function(result) {
+        try {
+          const res = await fetch("/api/search-pokemon", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input: nom })
+          });
+
+          const result = await res.json();
+
           if (!result) {
             loader.style.display = "none";
             searchDiv.innerHTML = "Pokémon introuvable ❌";
@@ -281,53 +292,46 @@
                 style="width:120px; image-rendering:pixelated;">
           `;
 
-          google.script.run
-            .withSuccessHandler(function(carac) {
-
+          // Récupération Caractéristiques
+          fetch(`/api/pokemon-caracteristiques?id=${result.index}`)
+            .then(r => r.json())
+            .then(carac => {
               if (carac.error) {
                 document.getElementById("caracteristiques").innerHTML =
                   "Erreur caractéristiques : " + carac.error;
                 return;
               }
-
               afficherCaracteristiques(carac);
+            });
 
-            })
-            .getPokemonCaracteristiques(result.index);
-
-          // 🔥 Appel sensibilités avec ID
-          google.script.run
-            .withSuccessHandler(function(multipliers) {
-
+          // Récupération Sensibilités
+          fetch(`/api/pokemon-sensibilites?id=${result.index}`)
+            .then(r => r.json())
+            .then(multipliers => {
               loader.style.display = "none";
-
               if (multipliers.error) {
                 sensDiv.innerHTML = "Erreur API : " + multipliers.error;
                 return;
               }
-
               afficherSensibilites(multipliers);
+            });
 
-            })
-            .getPokemonSensibilites(result.index);
-
-          google.script.run
-            .withSuccessHandler(function(stats) {
-
+          // Récupération Stats
+          fetch(`/api/pokemon-stats?id=${result.index}`)
+            .then(r => r.json())
+            .then(stats => {
               if (stats.error) {
                 document.getElementById("stats").innerHTML =
                   "Erreur stats : " + stats.error;
                 return;
               }
-
               afficherStats(stats);
+            });
 
-            })
-            .getPokemonStats(result.index);
-
-        }).searchPokemon(nom);
-
-        
+        } catch (err) {
+          loader.style.display = "none";
+          console.error("Erreur recherche :", err);
+        }
       }
 
     
@@ -339,7 +343,7 @@
           return;
         }
 
-        // Nom du Pokémon (on le récupère depuis le searchResult)
+        // Nom du Pokémon
         const nomPokemon = document.getElementById("searchResult")
           .innerText.split("\n")[0].trim();
 
@@ -407,7 +411,7 @@
             <b>groupes d'Œuf</b> ou l'<b>apparence du corps</b>,<br>
             rendez-vous sur :
             <br><br>
-            <a href="${urlPokepedia}" target="_blank" 
+            <a href="${urlPokepedia}"  
               style="color:#3c9c2c; font-weight:bold;">
               Poképédia - ${nomPokemon}
             </a>
@@ -598,9 +602,10 @@
       }
 
 
-
-      function chargerListePokemon() {
-        google.script.run.withSuccessHandler(function(noms) {
+      async function chargerListePokemon() {
+        try {
+          const res = await fetch("/api/pokemon-names");
+          const noms = await res.json();
 
           const datalist = document.getElementById("pokemonList");
           datalist.innerHTML = "";
@@ -610,8 +615,9 @@
             option.value = nom;
             datalist.appendChild(option);
           });
-
-        }).getAllPokemonNames();
+        } catch (err) {
+          console.error("Erreur chargement noms :", err);
+        }
       }
 
       function selectionPokemon(nom) {
@@ -648,9 +654,10 @@
       }
 
 
-      function chargerGenerations() {
-
-        google.script.run.withSuccessHandler(function(gens) {
+      async function chargerGenerations() {
+        try {
+          const res = await fetch("/api/generations");
+          const gens = await res.json();
 
           const container = document.getElementById("genContainer");
           container.innerHTML = "";
@@ -669,8 +676,9 @@
 
             container.appendChild(label);
           });
-
-        }).getGenerations();
+        } catch (err) {
+          console.error("Erreur chargement générations :", err);
+        }
       }
 
     </script>
