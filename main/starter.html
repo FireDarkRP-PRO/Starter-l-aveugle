@@ -112,6 +112,49 @@
         color: #c0392b;
       }
 
+      /* Filtres de génération */
+      .filtres-gen {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 10px 15px;
+        max-width: 480px;
+        margin: 0 auto 8px auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 16px;
+        color: #222;
+        font-size: 13px;
+      }
+
+      .gen-case {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .filtres-actions {
+        margin-bottom: 12px;
+      }
+
+      .filtres-actions button {
+        padding: 4px 12px;
+        font-size: 12px;
+        margin: 0 4px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .filtres-actions button:hover {
+        background-color: #2e7d22;
+      }
+
       /* Zone d'affichage des pokémon tirés */
       #pokemonContainer {
         display: flex;
@@ -415,6 +458,12 @@
 
       <div id="badgeMultijoueur"></div>
 
+      <div id="filtresGenerations" class="filtres-gen"></div>
+      <div class="filtres-actions">
+        <button type="button" onclick="basculerToutesGenerations(true)">Tout cocher</button>
+        <button type="button" onclick="basculerToutesGenerations(false)">Tout décocher</button>
+      </div>
+
       <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
       <div id="pokemonContainer"></div>
@@ -456,6 +505,81 @@
         return allPokemons;
       }
 
+      // ---------- Filtre par génération ----------
+
+      let listeGenerations = [];
+
+      async function chargerGenerations() {
+        if (listeGenerations.length > 0) return listeGenerations;
+
+        const reponse = await fetch('../BDD/genPokemon.txt');
+        const texte = await reponse.text();
+
+        listeGenerations = texte
+          .split('\n')
+          .map(ligne => ligne.trim())
+          .filter(ligne => ligne.length > 0)
+          .map(ligne => {
+            const [nomGen, plage] = ligne.split(':');
+            const [min, max] = plage.split('-').map(n => parseInt(n, 10));
+            const numero = parseInt(nomGen.replace(/\D/g, ''), 10);
+            return { numero, nom: nomGen, min, max };
+          });
+
+        return listeGenerations;
+      }
+
+      function afficherFiltresGenerations(generations) {
+        const conteneur = document.getElementById('filtresGenerations');
+        conteneur.innerHTML = generations.map(g => `
+          <label class="gen-case">
+            <input type="checkbox" class="gen-checkbox" value="${g.numero}" checked>
+            ${g.nom}
+          </label>
+        `).join('');
+
+        document.querySelectorAll('.gen-checkbox').forEach(cb => {
+          cb.addEventListener('change', envoyerSelectionGenerations);
+        });
+      }
+
+      function basculerToutesGenerations(cocher) {
+        document.querySelectorAll('.gen-checkbox').forEach(cb => { cb.checked = cocher; });
+        envoyerSelectionGenerations();
+      }
+
+      function envoyerSelectionGenerations() {
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
+            .map(cb => parseInt(cb.value, 10));
+          connexionMultijoueur.send({ type: 'selectionGen', generations: numerosSelectionnes });
+        }
+      }
+
+      function appliquerSelectionGenerations(numerosSelectionnes) {
+        document.querySelectorAll('.gen-checkbox').forEach(cb => {
+          cb.checked = numerosSelectionnes.includes(parseInt(cb.value, 10));
+        });
+      }
+
+      async function obtenirPokemonsFiltresParGeneration() {
+        const liste = await chargerPokemons();
+        const generations = await chargerGenerations();
+
+        const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
+          .map(cb => parseInt(cb.value, 10));
+
+        if (numerosSelectionnes.length === 0) {
+          return [];
+        }
+
+        const plagesSelectionnees = generations.filter(g => numerosSelectionnes.includes(g.numero));
+
+        return liste.filter(p =>
+          plagesSelectionnees.some(g => p.id >= g.min && p.id <= g.max)
+        );
+      }
+
       function choisirPokemonsAleatoires(liste, quantite) {
         const indicesChoisis = new Set();
         while (indicesChoisis.size < quantite && indicesChoisis.size < liste.length) {
@@ -494,15 +618,21 @@
       async function tirerPokemons() {
         const container = document.getElementById('pokemonContainer');
         try {
-          const liste = await chargerPokemons();
-          const pokemonsTires = choisirPokemonsAleatoires(liste, 3);
+          const listeFiltree = await obtenirPokemonsFiltresParGeneration();
+
+          if (listeFiltree.length === 0) {
+            container.innerHTML = '<p id="erreurMsg">Sélectionne au moins une génération avant de tirer.</p>';
+            return;
+          }
+
+          const pokemonsTires = choisirPokemonsAleatoires(listeFiltree, 3);
           afficherPokemons(pokemonsTires);
 
           if (connexionMultijoueur && connexionMultijoueur.open) {
             connexionMultijoueur.send({ type: 'tirage', pokemons: pokemonsTires });
           }
         } catch (erreur) {
-          container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt).</p>';
+          container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt ou ../BDD/genPokemon.txt).</p>';
           console.error(erreur);
         }
       }
@@ -526,6 +656,8 @@
         connexionMultijoueur.on('data', (donnee) => {
           if (donnee && donnee.type === 'tirage') {
             afficherPokemons(donnee.pokemons);
+          } else if (donnee && donnee.type === 'selectionGen') {
+            appliquerSelectionGenerations(donnee.generations);
           }
         });
 
@@ -948,6 +1080,8 @@
       // Gestion des interactions de la barre de recherche
       document.addEventListener('DOMContentLoaded', () => {
         initMultijoueurDepuisSession();
+
+        chargerGenerations().then(afficherFiltresGenerations);
 
         const champRecherche = document.getElementById('rechercheInput');
         if (champRecherche) {
