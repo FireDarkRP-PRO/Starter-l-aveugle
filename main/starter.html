@@ -277,6 +277,132 @@
         margin-top: 25px;
       }
 
+      /* Équipes affichées sous le tirage */
+      .zone-jeu-layout {
+        display: flex;
+        justify-content: center;
+      }
+
+      #zoneJeuCentrale {
+        width: 100%;
+        max-width: 520px;
+      }
+
+      .ligne-equipe {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 15px;
+      }
+
+      .ligne-equipe.actif {
+        display: flex;
+      }
+
+      .colonne-titre {
+        color: white;
+        font-weight: bold;
+        font-size: 13px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        margin-bottom: 6px;
+      }
+
+      .mini-liste {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .mini-liste-vide {
+        color: #eee;
+        font-size: 12px;
+        font-style: italic;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        margin: 0;
+      }
+
+      .mini-pokemon {
+        background: rgba(255, 255, 255, 0.88);
+        border-radius: 8px;
+        padding: 4px;
+        width: 66px;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 10px;
+        color: #222;
+        font-weight: bold;
+      }
+
+      .mini-pokemon img {
+        width: 38px;
+        height: 38px;
+        image-rendering: pixelated;
+      }
+
+      #btnTelechargerEquipe {
+        padding: 12px 24px;
+        font-size: 15px;
+        border: none;
+        border-radius: 8px;
+        background-color: #3c9c2c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        margin-top: 5px;
+      }
+
+      #btnTelechargerEquipe:hover {
+        background-color: #2e7d22;
+      }
+
+      #btnTelechargerEquipe:disabled {
+        background-color: #999;
+        cursor: default;
+      }
+
+      .note-showdown {
+        color: #eee;
+        font-size: 13px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        margin: 8px 0 0 0;
+      }
+
+      #resultatShowdown {
+        max-width: 300px;
+        margin: 12px auto 0 auto;
+      }
+
+      .texte-showdown {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 140px;
+        font-family: monospace;
+        font-size: 13px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        resize: vertical;
+        margin-bottom: 8px;
+      }
+
+      #btnCopierShowdown {
+        padding: 10px 20px;
+        font-size: 14px;
+        border: none;
+        border-radius: 8px;
+        background-color: #3c9c2c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      #btnCopierShowdown:hover {
+        background-color: #2e7d22;
+      }
+
       /* Zone d'affichage des pokémon tirés */
       #pokemonContainer {
         display: flex;
@@ -581,17 +707,24 @@
       <div id="badgeMultijoueur"></div>
       <div id="statutTourZone"></div>
 
-      <div id="filtresGenerations" class="filtres-gen"></div>
-      <div class="filtres-actions">
-        <button type="button" onclick="basculerToutesGenerations(true)">Tout cocher</button>
-        <button type="button" onclick="basculerToutesGenerations(false)">Tout décocher</button>
+      <div class="zone-jeu-layout">
+        <div id="zoneJeuCentrale">
+          <div id="filtresGenerations" class="filtres-gen"></div>
+          <div class="filtres-actions">
+            <button type="button" onclick="basculerToutesGenerations(true)">Tout cocher</button>
+            <button type="button" onclick="basculerToutesGenerations(false)">Tout décocher</button>
+          </div>
+
+          <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
+
+          <div id="pokemonContainer"></div>
+
+          <div id="zoneActionsMultijoueur"></div>
+
+          <div id="equipeGaucheZone" class="ligne-equipe"></div>
+          <div id="equipeDroiteZone" class="ligne-equipe"></div>
+        </div>
       </div>
-
-      <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
-
-      <div id="pokemonContainer"></div>
-
-      <div id="zoneActionsMultijoueur"></div>
 
       <div id="equipesFinaleZone" style="display:none;"></div>
 
@@ -801,6 +934,7 @@
         monRoleJeu = sessionStorage.getItem('mp_role') === 'hote' ? 'hote' : 'joueur';
         tourDe = 'hote';
         reinitialiserRoundMultijoueur();
+        afficherMiniEquipes();
         rafraichirVueMultijoueur();
       }
 
@@ -853,9 +987,22 @@
         if (connexionMultijoueur && connexionMultijoueur.open) {
           connexionMultijoueur.send({ type: 'finTour' });
         }
+        finDuTour();
+      }
+
+      // Appelée localement (bouton "Terminer mon tour") ET à la réception du message 'finTour'.
+      // C'est le seul moment où l'affichage des équipes et la vérification de fin de partie ont lieu,
+      // pour éviter qu'un joueur voie un pokémon avant que l'autre ne l'ait révélé.
+      function finDuTour() {
         basculerTour();
         reinitialiserRoundMultijoueur();
-        rafraichirVueMultijoueur();
+        afficherMiniEquipes();
+
+        if (equipes.hote.length >= 6 && equipes.joueur.length >= 6) {
+          afficherEquipesFinales();
+        } else {
+          rafraichirVueMultijoueur();
+        }
       }
 
       function tenterChoix(i) {
@@ -878,16 +1025,40 @@
       function rafraichirVueMultijoueur() {
         if (!modeMultijoueur) return;
 
-        if (equipes.hote.length >= 6 && equipes.joueur.length >= 6) {
-          afficherEquipesFinales();
-          return;
-        }
-
         if (estMonTour()) {
           rafraichirVueActive();
         } else {
           rafraichirVueAttente();
         }
+      }
+
+      function genererMiniListe(liste) {
+        if (liste.length === 0) {
+          return '<p class="mini-liste-vide">Aucun pokémon pour l\'instant</p>';
+        }
+
+        return liste.map(p => {
+          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          return `
+            <div class="mini-pokemon">
+              <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+              <div>${p.nom}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function afficherMiniEquipes() {
+        const autreRoleJeu = monRoleJeu === 'hote' ? 'joueur' : 'hote';
+
+        const gauche = document.getElementById('equipeGaucheZone');
+        const droite = document.getElementById('equipeDroiteZone');
+
+        gauche.classList.add('actif');
+        droite.classList.add('actif');
+
+        gauche.innerHTML = `<div class="colonne-titre">Ton équipe</div><div class="mini-liste">${genererMiniListe(equipes[monRoleJeu])}</div>`;
+        droite.innerHTML = `<div class="colonne-titre">Adversaire</div><div class="mini-liste">${genererMiniListe(equipes[autreRoleJeu])}</div>`;
       }
 
       function rafraichirVueActive() {
@@ -1004,6 +1175,8 @@
         document.getElementById('zoneActionsMultijoueur').innerHTML = '';
         document.getElementById('pokemonContainer').innerHTML = '';
         document.getElementById('filtresGenerations').innerHTML = '';
+        document.getElementById('equipeGaucheZone').classList.remove('actif');
+        document.getElementById('equipeDroiteZone').classList.remove('actif');
 
         const zone = document.getElementById('equipesFinaleZone');
         zone.style.display = 'block';
@@ -1026,9 +1199,60 @@
         zone.innerHTML = `
           <h2 class="titre-equipe">🎉 Ton équipe</h2>
           <div class="pokemon-team-grid">${genererListe(monEquipe)}</div>
+          <button id="btnTelechargerEquipe" onclick="genererFormatShowdown()">📋 Générer le format Pokémon Showdown</button>
+          <p class="note-showdown">⚠️ Pokémon Showdown n'accepte que les noms anglais — la conversion se fait automatiquement.</p>
+          <div id="resultatShowdown"></div>
           <h2 class="titre-equipe">Équipe adverse</h2>
           <div class="pokemon-team-grid">${genererListe(equipeAdverse)}</div>
         `;
+      }
+
+      async function genererFormatShowdown() {
+        const bouton = document.getElementById('btnTelechargerEquipe');
+        const zoneResultat = document.getElementById('resultatShowdown');
+        const equipe = equipes[monRoleJeu];
+        if (!equipe || equipe.length === 0) return;
+
+        const texteOriginal = bouton.textContent;
+        bouton.disabled = true;
+        bouton.textContent = '⏳ Génération...';
+
+        try {
+          const nomsAnglais = await Promise.all(equipe.map(async (p) => {
+            try {
+              const espece = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${p.id}`).then(r => r.json());
+              const nomEn = espece.names.find(n => n.language.name === 'en');
+              return nomEn ? nomEn.name : p.nom;
+            } catch {
+              return p.nom;
+            }
+          }));
+
+          const contenu = nomsAnglais.join('\n\n');
+
+          zoneResultat.innerHTML = `
+            <textarea id="texteShowdown" class="texte-showdown" readonly>${contenu}</textarea>
+            <button id="btnCopierShowdown" onclick="copierFormatShowdown()">📄 Copier</button>
+          `;
+        } catch (erreur) {
+          console.error(erreur);
+          alert("Erreur lors de la génération du format. Réessaie.");
+        } finally {
+          bouton.disabled = false;
+          bouton.textContent = texteOriginal;
+        }
+      }
+
+      function copierFormatShowdown() {
+        const champ = document.getElementById('texteShowdown');
+        if (!champ) return;
+
+        navigator.clipboard.writeText(champ.value).then(() => {
+          const bouton = document.getElementById('btnCopierShowdown');
+          const texteOriginal = bouton.textContent;
+          bouton.textContent = '✅ Copié !';
+          setTimeout(() => { bouton.textContent = texteOriginal; }, 1500);
+        });
       }
 
       // ---------- Connexion multijoueur (reprise depuis le salon) ----------
@@ -1084,9 +1308,7 @@
               break;
 
             case 'finTour':
-              basculerTour();
-              reinitialiserRoundMultijoueur();
-              rafraichirVueMultijoueur();
+              finDuTour();
               break;
           }
         });
