@@ -155,6 +155,128 @@
         background-color: #2e7d22;
       }
 
+      /* ---------- Mode tour par tour ---------- */
+
+      .zone-indice {
+        margin-top: 10px;
+      }
+
+      .indice-texte {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 50px;
+        font-size: 12px;
+        padding: 5px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-family: Arial;
+      }
+
+      .indice-envoye {
+        font-size: 12px;
+        color: #222;
+        background: #eee;
+        border-radius: 6px;
+        padding: 5px;
+        margin: 0;
+      }
+
+      .btn-reveler {
+        margin-top: 4px;
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .btn-reveler:hover {
+        background-color: #2e7d22;
+      }
+
+      #zoneActionsMultijoueur {
+        margin-top: 15px;
+      }
+
+      #zoneActionsMultijoueur button {
+        padding: 12px 24px;
+        font-size: 15px;
+        border: none;
+        border-radius: 8px;
+        background-color: #ff3c3c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      #zoneActionsMultijoueur button:hover {
+        background-color: #cc0000;
+      }
+
+      .boite-noire {
+        background: #111;
+        color: white;
+        border-radius: 12px;
+        padding: 20px 10px;
+        width: 160px;
+        flex: 0 0 160px;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        transition: transform 0.15s;
+      }
+
+      .boite-noire:hover {
+        transform: scale(1.04);
+      }
+
+      .boite-inactive {
+        cursor: default;
+        opacity: 0.8;
+      }
+
+      .boite-inactive:hover {
+        transform: none;
+      }
+
+      .boite-choisie {
+        border: 3px solid #f7d02c;
+      }
+
+      .point-interrogation {
+        font-size: 40px;
+      }
+
+      .indice-boite {
+        font-size: 12px;
+        margin-top: 8px;
+        word-wrap: break-word;
+      }
+
+      .marque-choix {
+        color: #f7d02c;
+        font-weight: bold;
+        margin-top: 6px;
+      }
+
+      .pokemon-team-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 10px;
+      }
+
+      .titre-equipe {
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        margin-top: 25px;
+      }
+
       /* Zone d'affichage des pokémon tirés */
       #pokemonContainer {
         display: flex;
@@ -457,6 +579,7 @@
       <h1>Starter Pokémon à l'aveugle</h1>
 
       <div id="badgeMultijoueur"></div>
+      <div id="statutTourZone"></div>
 
       <div id="filtresGenerations" class="filtres-gen"></div>
       <div class="filtres-actions">
@@ -467,6 +590,10 @@
       <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
       <div id="pokemonContainer"></div>
+
+      <div id="zoneActionsMultijoueur"></div>
+
+      <div id="equipesFinaleZone" style="display:none;"></div>
 
       <hr style="max-width:400px; margin:30px auto;">
 
@@ -616,6 +743,10 @@
       }
 
       async function tirerPokemons() {
+        if (modeMultijoueur) {
+          return tirerPokemonsMultijoueur();
+        }
+
         const container = document.getElementById('pokemonContainer');
         try {
           const listeFiltree = await obtenirPokemonsFiltresParGeneration();
@@ -627,14 +758,277 @@
 
           const pokemonsTires = choisirPokemonsAleatoires(listeFiltree, 3);
           afficherPokemons(pokemonsTires);
-
-          if (connexionMultijoueur && connexionMultijoueur.open) {
-            connexionMultijoueur.send({ type: 'tirage', pokemons: pokemonsTires });
-          }
         } catch (erreur) {
           container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt ou ../BDD/genPokemon.txt).</p>';
           console.error(erreur);
         }
+      }
+
+      // ================= Mode multijoueur : tour par tour =================
+
+      let modeMultijoueur = false;
+      let monRoleJeu = null;            // 'hote' | 'joueur'
+      let tourDe = 'hote';              // à qui de tirer actuellement
+      let tirageActuel = [];            // les 3 pokémon du round en cours
+      let tirageEffectue = false;       // un tirage a-t-il été fait ce round ?
+      let indicesEnvoyes = false;
+      let indicesActuels = ['', '', ''];
+      let choixEffectue = false;        // le joueur qui devine a-t-il choisi ?
+      let indexChoisi = null;
+      let revelesTableau = [false, false, false];
+      let equipes = { hote: [], joueur: [] };
+
+      function estMonTour() {
+        return monRoleJeu === tourDe;
+      }
+
+      function basculerTour() {
+        tourDe = (tourDe === 'hote') ? 'joueur' : 'hote';
+      }
+
+      function reinitialiserRoundMultijoueur() {
+        tirageActuel = [];
+        tirageEffectue = false;
+        indicesEnvoyes = false;
+        indicesActuels = ['', '', ''];
+        choixEffectue = false;
+        indexChoisi = null;
+        revelesTableau = [false, false, false];
+      }
+
+      function initialiserModeMultijoueurJeu() {
+        modeMultijoueur = true;
+        monRoleJeu = sessionStorage.getItem('mp_role') === 'hote' ? 'hote' : 'joueur';
+        tourDe = 'hote';
+        reinitialiserRoundMultijoueur();
+        rafraichirVueMultijoueur();
+      }
+
+      async function tirerPokemonsMultijoueur() {
+        if (!estMonTour() || tirageEffectue) return;
+
+        const listeFiltree = await obtenirPokemonsFiltresParGeneration();
+        if (listeFiltree.length === 0) {
+          document.getElementById('pokemonContainer').innerHTML =
+            '<p id="erreurMsg">Sélectionne au moins une génération avant de tirer.</p>';
+          return;
+        }
+
+        tirageActuel = choisirPokemonsAleatoires(listeFiltree, 3);
+        tirageEffectue = true;
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'tirage', pokemons: tirageActuel });
+        }
+
+        rafraichirVueMultijoueur();
+      }
+
+      function envoyerIndices() {
+        indicesActuels = [0, 1, 2].map(i => {
+          const champ = document.getElementById('indiceTexte-' + i);
+          return champ ? champ.value.trim() : '';
+        });
+        indicesEnvoyes = true;
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'indices', textes: indicesActuels });
+        }
+
+        rafraichirVueActive();
+      }
+
+      function reveler(i) {
+        if (revelesTableau[i]) return;
+        revelesTableau[i] = true;
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'reveal', index: i });
+        }
+
+        rafraichirVueActive();
+      }
+
+      function terminerTour() {
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'finTour' });
+        }
+        basculerTour();
+        reinitialiserRoundMultijoueur();
+        rafraichirVueMultijoueur();
+      }
+
+      function tenterChoix(i) {
+        if (choixEffectue) return;
+
+        const confirmation = confirm('Confirmes-tu ton choix ? Cette action est définitive.');
+        if (!confirmation) return;
+
+        indexChoisi = i;
+        choixEffectue = true;
+        equipes[monRoleJeu].push(tirageActuel[i]);
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'choix', index: i, role: monRoleJeu });
+        }
+
+        rafraichirVueMultijoueur();
+      }
+
+      function rafraichirVueMultijoueur() {
+        if (!modeMultijoueur) return;
+
+        if (equipes.hote.length >= 6 && equipes.joueur.length >= 6) {
+          afficherEquipesFinales();
+          return;
+        }
+
+        if (estMonTour()) {
+          rafraichirVueActive();
+        } else {
+          rafraichirVueAttente();
+        }
+      }
+
+      function rafraichirVueActive() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-connecte">🎯 C\'est ton tour !</span>';
+
+        const boutonTirage = document.getElementById('tirageBtn');
+        const zoneActions = document.getElementById('zoneActionsMultijoueur');
+
+        if (!tirageEffectue) {
+          boutonTirage.style.display = 'inline-block';
+          boutonTirage.disabled = false;
+          document.getElementById('pokemonContainer').innerHTML = '';
+          zoneActions.innerHTML = '';
+          return;
+        }
+
+        boutonTirage.style.display = 'none';
+
+        afficherPokemons(tirageActuel);
+
+        const cartes = document.querySelectorAll('#pokemonContainer .pokemon-card');
+        cartes.forEach((carte, i) => {
+          const zone = document.createElement('div');
+          zone.className = 'zone-indice';
+          zone.onclick = (e) => e.stopPropagation();
+
+          if (!indicesEnvoyes) {
+            zone.innerHTML = `<textarea class="indice-texte" id="indiceTexte-${i}" placeholder="Indice pour ce pokémon..."></textarea>`;
+          } else if (!choixEffectue) {
+            zone.innerHTML = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
+          } else {
+            const marque = (i === indexChoisi) ? ' ⭐' : '';
+            zone.innerHTML = revelesTableau[i]
+              ? `<p class="indice-envoye">✅ Révélé${marque}</p>`
+              : `<button class="btn-reveler" onclick="reveler(${i})">👁️ Révéler${marque}</button>`;
+          }
+
+          carte.appendChild(zone);
+        });
+
+        if (!indicesEnvoyes) {
+          zoneActions.innerHTML = '<button onclick="envoyerIndices()">📨 Envoyer les indices</button>';
+        } else if (!choixEffectue) {
+          zoneActions.innerHTML = '<span class="badge-multijoueur badge-attente">⏳ En attente du choix de l\'autre joueur...</span>';
+        } else {
+          zoneActions.innerHTML = '<button onclick="terminerTour()">✅ Terminer mon tour</button>';
+        }
+      }
+
+      function genererBoitesNoires(message) {
+        return [0, 1, 2].map(() => `
+          <div class="boite-noire boite-inactive">
+            <div class="point-interrogation">❔</div>
+            <p class="indice-boite">${message}</p>
+          </div>
+        `).join('');
+      }
+
+      function rafraichirVueAttente() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-attente">⏳ C\'est le tour de l\'autre joueur...</span>';
+
+        document.getElementById('tirageBtn').style.display = 'none';
+        document.getElementById('zoneActionsMultijoueur').innerHTML = '';
+
+        const container = document.getElementById('pokemonContainer');
+
+        if (!tirageEffectue) {
+          container.innerHTML = genererBoitesNoires('En attente du tirage...');
+          return;
+        }
+
+        if (!indicesEnvoyes) {
+          container.innerHTML = genererBoitesNoires('En attente des indices...');
+          return;
+        }
+
+        container.innerHTML = tirageActuel.map((p, i) => {
+          if (revelesTableau[i]) {
+            const idFormate = String(p.id).padStart(3, '0');
+            const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+            const marque = (i === indexChoisi) ? '<p class="marque-choix">🎉 Ton choix !</p>' : '';
+            return `
+              <div class="pokemon-card">
+                <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+                <p>${p.nom}</p>
+                <span class="num">#${idFormate}</span>
+                ${marque}
+              </div>
+            `;
+          }
+
+          const classeChoisie = (choixEffectue && i === indexChoisi) ? ' boite-choisie' : '';
+          const classeInactive = choixEffectue ? ' boite-inactive' : '';
+          const texteStatut = choixEffectue
+            ? (i === indexChoisi ? '🔒 Choix enregistré' : '')
+            : `💬 ${indicesActuels[i] || "(pas d'indice)"}`;
+          const clic = choixEffectue ? '' : `onclick="tenterChoix(${i})"`;
+
+          return `
+            <div class="boite-noire${classeChoisie}${classeInactive}" ${clic}>
+              <div class="point-interrogation">❔</div>
+              <p class="indice-boite">${texteStatut}</p>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function afficherEquipesFinales() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-connecte">🏆 Équipes complètes !</span>';
+        document.getElementById('tirageBtn').style.display = 'none';
+        document.getElementById('zoneActionsMultijoueur').innerHTML = '';
+        document.getElementById('pokemonContainer').innerHTML = '';
+        document.getElementById('filtresGenerations').innerHTML = '';
+
+        const zone = document.getElementById('equipesFinaleZone');
+        zone.style.display = 'block';
+
+        const genererListe = (liste) => liste.map(p => {
+          const idFormate = String(p.id).padStart(3, '0');
+          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          return `
+            <div class="pokemon-card">
+              <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+              <p>${p.nom}</p>
+              <span class="num">#${idFormate}</span>
+            </div>
+          `;
+        }).join('');
+
+        const monEquipe = equipes[monRoleJeu];
+        const equipeAdverse = equipes[monRoleJeu === 'hote' ? 'joueur' : 'hote'];
+
+        zone.innerHTML = `
+          <h2 class="titre-equipe">🎉 Ton équipe</h2>
+          <div class="pokemon-team-grid">${genererListe(monEquipe)}</div>
+          <h2 class="titre-equipe">Équipe adverse</h2>
+          <div class="pokemon-team-grid">${genererListe(equipeAdverse)}</div>
+        `;
       }
 
       // ---------- Connexion multijoueur (reprise depuis le salon) ----------
@@ -654,10 +1048,46 @@
         });
 
         connexionMultijoueur.on('data', (donnee) => {
-          if (donnee && donnee.type === 'tirage') {
-            afficherPokemons(donnee.pokemons);
-          } else if (donnee && donnee.type === 'selectionGen') {
-            appliquerSelectionGenerations(donnee.generations);
+          if (!donnee || !donnee.type) return;
+
+          switch (donnee.type) {
+            case 'tirage':
+              if (modeMultijoueur) {
+                tirageActuel = donnee.pokemons;
+                tirageEffectue = true;
+                rafraichirVueMultijoueur();
+              } else {
+                afficherPokemons(donnee.pokemons);
+              }
+              break;
+
+            case 'selectionGen':
+              appliquerSelectionGenerations(donnee.generations);
+              break;
+
+            case 'indices':
+              indicesActuels = donnee.textes;
+              indicesEnvoyes = true;
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'choix':
+              indexChoisi = donnee.index;
+              choixEffectue = true;
+              equipes[donnee.role].push(tirageActuel[donnee.index]);
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'reveal':
+              revelesTableau[donnee.index] = true;
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'finTour':
+              basculerTour();
+              reinitialiserRoundMultijoueur();
+              rafraichirVueMultijoueur();
+              break;
           }
         });
 
@@ -710,6 +1140,7 @@
         if (!role || !code) return;
 
         afficherBadgeMultijoueur('⏳ Connexion avec l\'autre joueur...', 'badge-attente');
+        initialiserModeMultijoueurJeu();
 
         if (role === 'hote') {
           creerPeerHote(code, 0);
