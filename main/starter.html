@@ -2,6 +2,7 @@
 <html>
   <head>
     <base target="_top">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
       body {
         padding-bottom: 300px;
@@ -87,6 +88,30 @@
         background-color: #cc0000;
       }
 
+      /* Badge de statut multijoueur */
+      .badge-multijoueur {
+        display: inline-block;
+        margin: 0 0 15px 0;
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: bold;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      .badge-attente {
+        color: #b8860b;
+      }
+
+      .badge-connecte {
+        color: #2e7d22;
+      }
+
+      .badge-erreur {
+        color: #c0392b;
+      }
+
       /* Zone d'affichage des pokémon tirés */
       #pokemonContainer {
         display: flex;
@@ -107,6 +132,7 @@
         flex: 0 0 160px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         transition: transform 0.2s;
+        cursor: pointer;
       }
 
       .pokemon-card:hover {
@@ -272,15 +298,122 @@
         font-size: 16px;
         color: #222;
       }
+
+      /* Section Sensibilités */
+      .sensi-bloc {
+        margin-top: 18px;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      }
+
+      .sensi-header {
+        background-color: #3c9c2c;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        padding: 8px;
+      }
+
+      .sensi-corps {
+        background: #fafafa;
+        padding: 12px;
+      }
+
+      .types-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .type-badge {
+        width: 74px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+        font-size: 11px;
+      }
+
+      .type-badge-nom {
+        color: white;
+        font-weight: bold;
+        text-align: center;
+        padding: 6px 3px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        line-height: 1.3;
+      }
+
+      .type-badge-mult {
+        background: rgba(255, 255, 255, 0.85);
+        color: #222;
+        font-weight: bold;
+        text-align: center;
+        padding: 2px 0;
+      }
+
+      /* Section Statistiques de base */
+      .stats-bloc {
+        margin-top: 18px;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      }
+
+      .stats-header {
+        background-color: #3c9c2c;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        padding: 8px;
+      }
+
+      .stats-corps {
+        background: #fafafa;
+        padding: 14px 15px 6px 15px;
+      }
+
+      .stat-ligne {
+        margin-bottom: 12px;
+      }
+
+      .stat-nom {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: #222;
+      }
+
+      .stat-barre-fond {
+        background: #e0e0e0;
+        border-radius: 6px;
+        height: 10px;
+        overflow: hidden;
+      }
+
+      .stat-barre-remplie {
+        background-color: #3c9c2c;
+        height: 100%;
+        border-radius: 6px;
+      }
+
+      .stats-total {
+        text-align: center;
+        font-weight: bold;
+        color: #222;
+        margin: 8px 0 4px 0;
+      }
     </style>
   </head>
   <body>
     <a class="button" id="rulesBtn" href="./starterRules.html">📜 Règles</a>
     <a class="button" id="ShowdownBtn" href="https://pokemonshowdown.com/" >⚔️ Pokémon Showdown</a>
-    <a class="button" id="BackBtn" href="./index.html">↩️ Retour</a>  
+    <a class="button" id="BackBtn" href="./index.html" onclick="return couperEtRetourner(event)">↩️ Retour</a>  
         
     <div class="top-zone">
       <h1>Starter Pokémon à l'aveugle</h1>
+
+      <div id="badgeMultijoueur"></div>
 
       <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
@@ -338,6 +471,12 @@
         pokemons.forEach(p => {
           const carte = document.createElement('div');
           carte.className = 'pokemon-card';
+          carte.title = 'Cliquer pour voir sa fiche';
+          carte.onclick = () => {
+            document.getElementById('rechercheInput').value = p.nom;
+            document.getElementById('rechercheInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            lancerAffichageFiche(p.id, p.nom);
+          };
 
           const idFormate = String(p.id).padStart(3, '0');
           const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
@@ -358,10 +497,109 @@
           const liste = await chargerPokemons();
           const pokemonsTires = choisirPokemonsAleatoires(liste, 3);
           afficherPokemons(pokemonsTires);
+
+          if (connexionMultijoueur && connexionMultijoueur.open) {
+            connexionMultijoueur.send({ type: 'tirage', pokemons: pokemonsTires });
+          }
         } catch (erreur) {
           container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt).</p>';
           console.error(erreur);
         }
+      }
+
+      // ---------- Connexion multijoueur (reprise depuis le salon) ----------
+
+      const PREFIXE_SALON = 'starter-aveugle-';
+      let peerMultijoueur = null;
+      let connexionMultijoueur = null;
+
+      function afficherBadgeMultijoueur(texte, classe) {
+        const badge = document.getElementById('badgeMultijoueur');
+        badge.innerHTML = `<span class="badge-multijoueur ${classe}">${texte}</span>`;
+      }
+
+      function configurerConnexionMultijoueur() {
+        connexionMultijoueur.on('open', () => {
+          afficherBadgeMultijoueur('🟢 Connecté avec l\'autre joueur', 'badge-connecte');
+        });
+
+        connexionMultijoueur.on('data', (donnee) => {
+          if (donnee && donnee.type === 'tirage') {
+            afficherPokemons(donnee.pokemons);
+          }
+        });
+
+        connexionMultijoueur.on('close', () => {
+          afficherBadgeMultijoueur('🔴 Le partenaire s\'est déconnecté', 'badge-erreur');
+        });
+      }
+
+      function creerPeerHote(code, tentative) {
+        peerMultijoueur = new Peer(PREFIXE_SALON + code);
+
+        peerMultijoueur.on('open', () => {
+          peerMultijoueur.on('connection', (conn) => {
+            connexionMultijoueur = conn;
+            configurerConnexionMultijoueur();
+          });
+        });
+
+        peerMultijoueur.on('error', (erreur) => {
+          if (erreur.type === 'unavailable-id' && tentative < 6) {
+            setTimeout(() => creerPeerHote(code, tentative + 1), 500);
+          } else {
+            console.error(erreur);
+            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+          }
+        });
+      }
+
+      function creerPeerJoueur(code, tentative) {
+        peerMultijoueur = new Peer();
+
+        peerMultijoueur.on('open', () => {
+          connexionMultijoueur = peerMultijoueur.connect(PREFIXE_SALON + code);
+          configurerConnexionMultijoueur();
+        });
+
+        peerMultijoueur.on('error', (erreur) => {
+          if (erreur.type === 'peer-unavailable' && tentative < 6) {
+            setTimeout(() => creerPeerJoueur(code, tentative + 1), 500);
+          } else {
+            console.error(erreur);
+            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+          }
+        });
+      }
+
+      function initMultijoueurDepuisSession() {
+        const role = sessionStorage.getItem('mp_role');
+        const code = sessionStorage.getItem('mp_code');
+        if (!role || !code) return;
+
+        afficherBadgeMultijoueur('⏳ Connexion avec l\'autre joueur...', 'badge-attente');
+
+        if (role === 'hote') {
+          creerPeerHote(code, 0);
+        } else {
+          creerPeerJoueur(code, 0);
+        }
+      }
+
+      function couperEtRetourner(evenement) {
+        evenement.preventDefault();
+
+        if (connexionMultijoueur) {
+          try { connexionMultijoueur.close(); } catch (erreur) { /* ignoré */ }
+        }
+        if (peerMultijoueur) {
+          try { peerMultijoueur.destroy(); } catch (erreur) { /* ignoré */ }
+        }
+
+        sessionStorage.removeItem('mp_role');
+        sessionStorage.removeItem('mp_code');
+
+        window.location.href = './index.html';
       }
 
       // ---------- Recherche détaillée d'un pokémon (via PokeAPI) ----------
@@ -384,20 +622,19 @@
         white: 'Blanc', yellow: 'Jaune'
       };
 
-      const GROUPES_OEUF_FR = {
-        monster: 'Monstre', water1: 'Groupe Eau 1', bug: 'Insecte',
-        flying: 'Vol', field: 'Champ', fairy: 'Fée', grass: 'Plante',
-        'human-like': 'Humanoïde', water3: 'Groupe Eau 3', mineral: 'Minéral',
-        amorphous: 'Amorphe', water2: 'Groupe Eau 2', ditto: 'Métamorphe',
-        dragon: 'Dragon', undiscovered: 'Aucun (non découvert)'
+      const TYPE_COULEURS = {
+        normal: '#A8A77A', fire: '#EE8130', water: '#6390F0', electric: '#F7D02C',
+        grass: '#7AC74C', ice: '#96D9D6', fighting: '#C22E28', poison: '#A33EA1',
+        ground: '#E2BF65', flying: '#A98FF3', psychic: '#F95587', bug: '#A6B91A',
+        rock: '#B6A136', ghost: '#735797', dragon: '#6F35FC', dark: '#705746',
+        steel: '#B7B7CE', fairy: '#D685AD'
       };
 
-      const FORMES_CORPS_FR = {
-        ball: 'Sphérique', squiggle: 'Serpentin', fish: 'Poisson',
-        arms: 'Avec bras', blob: 'Amorphe', upright: 'Debout',
-        legs: 'Avec jambes', quadruped: 'Quadrupède', wings: 'Avec ailes',
-        tentacles: 'Tentacules', heads: 'Têtes multiples', humanoid: 'Humanoïde',
-        'bug-wings': 'Insecte ailé', armor: 'Cuirassé'
+      const TYPE_ICONES = {
+        normal: '⚪', fire: '🔥', water: '💧', electric: '⚡', grass: '🌿',
+        ice: '❄️', fighting: '👊', poison: '☠️', ground: '🌍', flying: '🪶',
+        psychic: '👁️', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
+        dark: '🌙', steel: '⚙️', fairy: '✨'
       };
 
       function normaliserTexte(texte) {
@@ -576,15 +813,91 @@
           })
         );
 
-        // Groupes d'œuf
-        const groupesOeuf = dataEspece.egg_groups
-          .map(g => GROUPES_OEUF_FR[g.name] || g.name)
-          .join(', ');
+        // Groupes d'œuf (noms français récupérés directement depuis PokeAPI)
+        const groupesOeufListe = await Promise.all(
+          dataEspece.egg_groups.map(async g => {
+            try {
+              const detailGroupe = await fetch(g.url).then(r => r.json());
+              const nomFrGroupe = detailGroupe.names.find(n => n.language.name === 'fr');
+              return nomFrGroupe ? nomFrGroupe.name : detailGroupe.name;
+            } catch {
+              return g.name;
+            }
+          })
+        );
+        const groupesOeuf = groupesOeufListe.join(', ');
 
-        // Apparence du corps
-        const apparenceCorps = dataEspece.shape
-          ? (FORMES_CORPS_FR[dataEspece.shape.name] || dataEspece.shape.name)
-          : '—';
+        // Lien vers la fiche Poképédia du pokémon
+        const lienPokepedia = `https://www.pokepedia.fr/${nomFr.replace(/ /g, '_')}`;
+
+        // Sensibilités (faiblesses / résistances / immunités selon les types du pokémon)
+        const typesDetails = await Promise.all(
+          dataPokemon.types.map(t => fetch(t.type.url).then(r => r.json()))
+        );
+
+        const multiplicateurs = {};
+        Object.keys(TYPES_FR).forEach(t => { multiplicateurs[t] = 1; });
+
+        typesDetails.forEach(detail => {
+          const relations = detail.damage_relations;
+          relations.double_damage_from.forEach(t => { multiplicateurs[t.name] *= 2; });
+          relations.half_damage_from.forEach(t => { multiplicateurs[t.name] *= 0.5; });
+          relations.no_damage_from.forEach(t => { multiplicateurs[t.name] *= 0; });
+        });
+
+        const formatMult = (m) => (m === 0.25 ? '¼' : m === 0.5 ? '½' : m);
+
+        const ORDRE_TYPES_AFFICHAGE = [
+          'normal', 'grass', 'fire', 'water', 'electric', 'ice', 'fighting',
+          'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost',
+          'dragon', 'dark', 'steel', 'fairy'
+        ];
+
+        const grilleTypesHtml = ORDRE_TYPES_AFFICHAGE.map(type => {
+          const mult = multiplicateurs[type];
+          const couleur = TYPE_COULEURS[type];
+          const icone = TYPE_ICONES[type];
+          const nomTypeFr = TYPES_FR[type];
+          const multHtml = mult !== 1
+            ? `<div class="type-badge-mult">× ${formatMult(mult)}</div>`
+            : '';
+          return `
+            <div class="type-badge" style="background-color:${couleur};">
+              <div class="type-badge-nom">${icone} ${nomTypeFr}</div>
+              ${multHtml}
+            </div>
+          `;
+        }).join('');
+
+        // Statistiques de base
+        const NOMS_STATS_FR = {
+          hp: 'PV',
+          attack: 'Attaque',
+          defense: 'Défense',
+          'special-attack': 'Attaque Spé',
+          'special-defense': 'Défense Spé',
+          speed: 'Vitesse'
+        };
+
+        const ORDRE_STATS = ['hp', 'attack', 'defense', 'special-attack', 'special-defense', 'speed'];
+
+        const statsParNom = {};
+        dataPokemon.stats.forEach(s => { statsParNom[s.stat.name] = s.base_stat; });
+
+        const totalStats = dataPokemon.stats.reduce((somme, s) => somme + s.base_stat, 0);
+
+        const statsHtml = ORDRE_STATS.map(cle => {
+          const valeur = statsParNom[cle] || 0;
+          const pourcentage = Math.min(100, (valeur / 255) * 100);
+          return `
+            <div class="stat-ligne">
+              <div class="stat-nom">${NOMS_STATS_FR[cle]} (${valeur})</div>
+              <div class="stat-barre-fond">
+                <div class="stat-barre-remplie" style="width:${pourcentage}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
 
         // Sprite
         const spriteUrl = (dataPokemon.sprites && dataPokemon.sprites.front_default)
@@ -611,12 +924,31 @@
           <div class="fiche-ligne"><strong>Description Pokédex :</strong> ${description}</div>
           <div class="fiche-ligne"><strong>Talents :</strong> ${talents.join(', ')}</div>
           <div class="fiche-ligne"><strong>Groupe(s) d'Œuf :</strong> ${groupesOeuf}</div>
-          <div class="fiche-ligne"><strong>Apparence du corps :</strong> ${apparenceCorps}</div>
+          <div class="fiche-ligne" style="text-align:center; margin-top:15px;">
+            <a href="${lienPokepedia}" target="_blank" rel="noopener">📖 Voir la fiche complète sur Poképédia</a>
+          </div>
+
+          <div class="sensi-bloc">
+            <div class="sensi-header">🛡️ Sensibilités</div>
+            <div class="sensi-corps">
+              <div class="types-grid">${grilleTypesHtml}</div>
+            </div>
+          </div>
+
+          <div class="stats-bloc">
+            <div class="stats-header">📊 Statistiques de base</div>
+            <div class="stats-corps">
+              ${statsHtml}
+              <div class="stats-total">Total : ${totalStats}</div>
+            </div>
+          </div>
         `;
       }
 
       // Gestion des interactions de la barre de recherche
       document.addEventListener('DOMContentLoaded', () => {
+        initMultijoueurDepuisSession();
+
         const champRecherche = document.getElementById('rechercheInput');
         if (champRecherche) {
           champRecherche.addEventListener('input', afficherSuggestions);
