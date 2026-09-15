@@ -2,70 +2,28 @@
 <html>
   <head>
     <base target="_top">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
       body {
         padding-bottom: 300px;
         font-family: Arial;
         text-align: center;
         background-image: url("https://play.pokemonshowdown.com/fx/client-bg-charizards.jpg");
-        background-size: cover;        /* remplit tout l'écran */
-        background-position: center;   /* centre l'image */
-        background-repeat: no-repeat;  /* évite répétition */
-        background-attachment: fixed; /* effet classe au scroll */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
       }
 
       h1 {
         margin-bottom: 20px;
       }
-
+      
       button {
         padding: 12px 25px;
         font-size: 16px;
         margin-bottom: 30px;
         cursor: pointer;
-      }
-
-      #loader {
-        display: none;
-        margin: 20px auto;
-        border: 6px solid #ddd;
-        border-top: 6px solid #333;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      #resultat {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 90%;
-        margin: 0 auto;
-      }
-
-      .pokemon {
-        flex: 1;
-        text-align: center;
-        font-size: 22px;
-        font-weight: bold;
-      }
-
-      .pokemon img {
-        display: block;
-        margin: 15px auto 0;
-        width: 120px;
-        image-rendering: pixelated; /* garde l’effet sprite */
-      }
-
-      .pokemon img:hover {
-        transform: scale(1.1);
-        transition: 0.2s;
       }
 
       #ShowdownBtn{
@@ -110,570 +68,1469 @@
         color: white;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
       }
-      
+
+      #tirageBtn {
+        padding: 14px 30px;
+        font-size: 18px;
+        margin: 20px 0;
+        cursor: pointer;
+        background-color: #ff3c3c;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: 0.3s;
+      }
+
+      #tirageBtn:hover {
+        background-color: #cc0000;
+      }
+
+      /* Badge de statut multijoueur */
+      .badge-multijoueur {
+        display: inline-block;
+        margin: 0 0 15px 0;
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: bold;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      .badge-attente {
+        color: #b8860b;
+      }
+
+      .badge-connecte {
+        color: #2e7d22;
+      }
+
+      .badge-erreur {
+        color: #c0392b;
+      }
+
+      /* Filtres de génération */
+      .filtres-gen {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 10px 15px;
+        max-width: 480px;
+        margin: 0 auto 8px auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 16px;
+        color: #222;
+        font-size: 13px;
+      }
+
+      .gen-case {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .filtres-actions {
+        margin-bottom: 12px;
+      }
+
+      .filtres-actions button {
+        padding: 4px 12px;
+        font-size: 12px;
+        margin: 0 4px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .filtres-actions button:hover {
+        background-color: #2e7d22;
+      }
+
+      /* ---------- Mode tour par tour ---------- */
+
+      .zone-indice {
+        margin-top: 10px;
+      }
+
+      .indice-texte {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 50px;
+        font-size: 12px;
+        padding: 5px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-family: Arial;
+      }
+
+      .indice-envoye {
+        font-size: 12px;
+        color: #222;
+        background: #eee;
+        border-radius: 6px;
+        padding: 5px;
+        margin: 0;
+      }
+
+      .btn-reveler {
+        margin-top: 4px;
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .btn-reveler:hover {
+        background-color: #2e7d22;
+      }
+
+      #zoneActionsMultijoueur {
+        margin-top: 15px;
+      }
+
+      #zoneActionsMultijoueur button {
+        padding: 12px 24px;
+        font-size: 15px;
+        border: none;
+        border-radius: 8px;
+        background-color: #ff3c3c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      #zoneActionsMultijoueur button:hover {
+        background-color: #cc0000;
+      }
+
+      .boite-noire {
+        background: #111;
+        color: white;
+        border-radius: 12px;
+        padding: 20px 10px;
+        width: 160px;
+        flex: 0 0 160px;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        transition: transform 0.15s;
+      }
+
+      .boite-noire:hover {
+        transform: scale(1.04);
+      }
+
+      .boite-inactive {
+        cursor: default;
+        opacity: 0.8;
+      }
+
+      .boite-inactive:hover {
+        transform: none;
+      }
+
+      .boite-choisie {
+        border: 3px solid #f7d02c;
+      }
+
+      .point-interrogation {
+        font-size: 40px;
+      }
+
+      .indice-boite {
+        font-size: 12px;
+        margin-top: 8px;
+        word-wrap: break-word;
+      }
+
+      .marque-choix {
+        color: #f7d02c;
+        font-weight: bold;
+        margin-top: 6px;
+      }
+
+      .pokemon-team-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 10px;
+      }
+
+      .titre-equipe {
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        margin-top: 25px;
+      }
+
+      /* Zone d'affichage des pokémon tirés */
+      #pokemonContainer {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 25px;
+        margin-top: 20px;
+        overflow-x: auto;
+        padding: 0 10px;
+      }
+
+      .pokemon-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        padding: 15px;
+        width: 160px;
+        flex: 0 0 160px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        transition: transform 0.2s;
+        cursor: pointer;
+      }
+
+      .pokemon-card:hover {
+        transform: scale(1.05);
+      }
+
+      .pokemon-card img {
+        width: 100px;
+        height: 100px;
+        image-rendering: pixelated;
+      }
+
+      .pokemon-card p {
+        margin: 8px 0 0 0;
+        font-weight: bold;
+        color: #222;
+      }
+
+      .pokemon-card span.num {
+        display: block;
+        font-size: 12px;
+        color: #777;
+      }
+
+      #erreurMsg {
+        color: #ffdddd;
+        background: rgba(150,0,0,0.6);
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 8px;
+        margin-top: 15px;
+      }
+
+      /* Barre de recherche */
+      .zone-recherche {
+        margin: 15px 0 5px 0;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .recherche-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+
+      #rechercheInput {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+        font-size: 16px;
+        width: 220px;
+        max-width: 70vw;
+      }
+
+      #rechercheBtn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      #rechercheBtn:hover {
+        background-color: #2e7d22;
+      }
+
+      #rechercheErreur {
+        color: #ffdddd;
+        background: rgba(150,0,0,0.6);
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 8px;
+        margin-top: 10px;
+      }
+
+      /* Liste d'autocomplétion */
+      .suggestions-liste {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border-radius: 0 0 8px 8px;
+        max-height: 240px;
+        overflow-y: auto;
+        z-index: 500;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+        text-align: left;
+      }
+
+      .suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        color: #222;
+        font-size: 14px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .suggestion-item:last-child {
+        border-bottom: none;
+      }
+
+      .suggestion-item:hover {
+        background: #f0f0f0;
+      }
+
+      .suggestion-item .num {
+        color: #888;
+        font-size: 12px;
+        margin-left: 6px;
+      }
+
+      /* Fiche détaillée d'un pokémon (affichée sous la recherche) */
+      .fiche-inline {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 14px;
+        max-width: 480px;
+        margin: 20px auto 0 auto;
+        padding: 20px;
+        text-align: left;
+        color: #222;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      }
+
+      .fiche-inline:empty {
+        display: none;
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+      }
+
+      .fiche-inline h2 {
+        text-align: center;
+        margin-top: 0;
+        color: #222;
+      }
+
+      .fiche-inline img.sprite-fiche {
+        display: block;
+        margin: 0 auto 15px auto;
+        width: 120px;
+        height: 120px;
+        image-rendering: pixelated;
+      }
+
+      .fiche-ligne {
+        margin: 8px 0;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+
+      .fiche-ligne strong {
+        color: #c0392b;
+      }
+
+      .fiche-chargement {
+        text-align: center;
+        font-size: 16px;
+        color: #222;
+      }
+
+      /* Section Sensibilités */
+      .sensi-bloc {
+        margin-top: 18px;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      }
+
+      .sensi-header {
+        background-color: #3c9c2c;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        padding: 8px;
+      }
+
+      .sensi-corps {
+        background: #fafafa;
+        padding: 12px;
+      }
+
+      .types-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .type-badge {
+        width: 74px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+        font-size: 11px;
+      }
+
+      .type-badge-nom {
+        color: white;
+        font-weight: bold;
+        text-align: center;
+        padding: 6px 3px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        line-height: 1.3;
+      }
+
+      .type-badge-mult {
+        background: rgba(255, 255, 255, 0.85);
+        color: #222;
+        font-weight: bold;
+        text-align: center;
+        padding: 2px 0;
+      }
+
+      /* Section Statistiques de base */
+      .stats-bloc {
+        margin-top: 18px;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      }
+
+      .stats-header {
+        background-color: #3c9c2c;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        padding: 8px;
+      }
+
+      .stats-corps {
+        background: #fafafa;
+        padding: 14px 15px 6px 15px;
+      }
+
+      .stat-ligne {
+        margin-bottom: 12px;
+      }
+
+      .stat-nom {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: #222;
+      }
+
+      .stat-barre-fond {
+        background: #e0e0e0;
+        border-radius: 6px;
+        height: 10px;
+        overflow: hidden;
+      }
+
+      .stat-barre-remplie {
+        background-color: #3c9c2c;
+        height: 100%;
+        border-radius: 6px;
+      }
+
+      .stats-total {
+        text-align: center;
+        font-weight: bold;
+        color: #222;
+        margin: 8px 0 4px 0;
+      }
     </style>
   </head>
   <body>
-    <a class="button" id="rulesBtn" href="<?= webAppUrl ?>?page=starterRules" target="_blank">📜 Règles</a>
-    <a class="button" id="ShowdownBtn" href="https://pokemonshowdown.com/" target="_blank">⚔️ Pokémon Showdown</a>
-    <a class="button" id="BackBtn" href="<?= webAppUrl ?>" target="_blank">↩️ Retour</a>  
+    <a class="button" id="rulesBtn" href="./starterRules.html">📜 Règles</a>
+    <a class="button" id="ShowdownBtn" href="https://pokemonshowdown.com/" >⚔️ Pokémon Showdown</a>
+    <a class="button" id="BackBtn" href="./index.html" onclick="return couperEtRetourner(event)">↩️ Retour</a>  
         
-
-
-    
     <div class="top-zone">
-    <h1>Starter Pokémon à l'aveugle</h1>
+      <h1>Starter Pokémon à l'aveugle</h1>
 
-    <h3>Générations</h3>
-    <div id="genContainer" style="margin-bottom:15px;"></div>
+      <div id="badgeMultijoueur"></div>
+      <div id="statutTourZone"></div>
 
-    <label style="font-weight: bold;">Nombre de Pokémon :</label>
-    <input type="number" id="nbPokemon" value="3" min="1" max="10" style="width:60px;">
-    <label>(Limité à 10)</label>
-    <br>
-    <label>(Formes régionales au choix)</label>
-    <br>
-    <button onclick="tirer()">Tirer les Pokémons</button>
+      <div id="filtresGenerations" class="filtres-gen"></div>
+      <div class="filtres-actions">
+        <button type="button" onclick="basculerToutesGenerations(true)">Tout cocher</button>
+        <button type="button" onclick="basculerToutesGenerations(false)">Tout décocher</button>
+      </div>
 
-    <div id="resultat"></div>
+      <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
-    <div id="loader"></div>
+      <div id="pokemonContainer"></div>
 
-    <br><br>
+      <div id="zoneActionsMultijoueur"></div>
 
-    <h2>Recherche</h2>
-    <input list="pokemonList" id="searchInput" placeholder="Nom du Pokémon">
-    <datalist id="pokemonList"></datalist>
+      <div id="equipesFinaleZone" style="display:none;"></div>
 
-    <button onclick="chercher()">Rechercher</button>
+      <hr style="max-width:400px; margin:30px auto;">
 
-    <div id="searchResult" style="margin-top:20px; font-size:22px; font-weight:bold;"></div></div>
-    <div id="caracteristiques" style="margin-top:30px;"></div>
-    <div id="sensibilites" style="margin-top:30px;"></div>
-    <div id="stats" style="margin-top:30px;"></div>
-    
+      <div class="zone-recherche">
+        <div class="recherche-wrapper">
+          <input type="text" id="rechercheInput" placeholder="Nom ou numéro de Pokédex..." autocomplete="off">
+          <div id="suggestionsListe" class="suggestions-liste"></div>
+        </div>
+        <button id="rechercheBtn" onclick="rechercherPokemon()">🔍 Rechercher</button>
+      </div>
+      <div id="rechercheErreurZone"></div>
+      <div id="ficheCorps" class="fiche-inline"></div>
+    </div>
 
-
-
-    
     <script>
+      // Liste complète des pokémon, chargée une seule fois depuis le fichier BDD
+      let allPokemons = [];
 
-      document.addEventListener("DOMContentLoaded", function() {
-        
-        chargerGenerations();
-        chargerListePokemon();
-        document.getElementById("searchInput")
-          .addEventListener("keypress", function(e) {
-            if (e.key === "Enter") {
-              chercher();
-            }
-        });
+      async function chargerPokemons() {
+        if (allPokemons.length > 0) return allPokemons;
 
-      });
-      
-      function tirer() {
+        const reponse = await fetch('../BDD/pokemon.txt');
+        const texte = await reponse.text();
 
-        const slotsContainer = document.getElementById("resultat");
-        const loader = document.getElementById("loader");
-
-        // Nombre choisi
-        const nb = parseInt(document.getElementById("nbPokemon").value) || 3;
-
-        // Générations cochées
-        const checked = Array.from(
-          document.querySelectorAll("#genContainer input:checked")
-        ).map(cb => cb.value);
-
-        // Reset affichage
-        slotsContainer.innerHTML = "";
-        loader.style.display = "block";
-
-        google.script.run.withSuccessHandler(function(pokemonsAndIndex) {
-
-          loader.style.display = "none";
-
-          let pokemons = pokemonsAndIndex[0]; 
-          let indexs = pokemonsAndIndex[1];
-
-          pokemons.forEach((nom, i) => {
-
-            const index = indexs[i];
-
-            const div = document.createElement("div");
-            div.className = "pokemon";
-
-            div.innerHTML = `
-              <div onclick="selectionPokemon('${nom}')">
-                ${index.toString().padStart(4, '0')} ${nom}
-                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${index}.png"
-                    style="cursor:pointer;">
-              </div>
-            `;
-
-            slotsContainer.appendChild(div);
+        allPokemons = texte
+          .split('\n')
+          .map(ligne => ligne.trim())
+          .filter(ligne => ligne.length > 0)
+          .map(ligne => {
+            const espace = ligne.indexOf(' ');
+            const numero = ligne.substring(0, espace);
+            const nom = ligne.substring(espace + 1).trim();
+            return { id: parseInt(numero, 10), nom: nom };
           });
 
-        }).getRandomPokemon(checked, nb);
+        return allPokemons;
       }
 
+      // ---------- Filtre par génération ----------
 
-      function chercher() {
-        document.getElementById("caracteristiques").innerHTML = "";
-        document.getElementById("sensibilites").innerHTML = "";
-        document.getElementById("stats").innerHTML = "";
+      let listeGenerations = [];
 
-        const nom = document.getElementById("searchInput").value.trim();
-        const loader = document.getElementById("loader");
-        const searchDiv = document.getElementById("searchResult");
-        const sensDiv = document.getElementById("sensibilites");
+      async function chargerGenerations() {
+        if (listeGenerations.length > 0) return listeGenerations;
 
-        if (!nom) return;
+        const reponse = await fetch('../BDD/genPokemon.txt');
+        const texte = await reponse.text();
 
-        searchDiv.innerHTML = "";
-        sensDiv.innerHTML = "";
-        loader.style.display = "block";
+        listeGenerations = texte
+          .split('\n')
+          .map(ligne => ligne.trim())
+          .filter(ligne => ligne.length > 0)
+          .map(ligne => {
+            const [nomGen, plage] = ligne.split(':');
+            const [min, max] = plage.split('-').map(n => parseInt(n, 10));
+            const numero = parseInt(nomGen.replace(/\D/g, ''), 10);
+            return { numero, nom: nomGen, min, max };
+          });
 
-        google.script.run.withSuccessHandler(function(result) {
-          if (!result) {
-            loader.style.display = "none";
-            searchDiv.innerHTML = "Pokémon introuvable ❌";
-            return;
-          }
+        return listeGenerations;
+      }
 
-          // 🎮 Easter Egg affichage
-          if (result.easterEgg) {
+      function afficherFiltresGenerations(generations) {
+        const conteneur = document.getElementById('filtresGenerations');
+        conteneur.innerHTML = generations.map(g => `
+          <label class="gen-case">
+            <input type="checkbox" class="gen-checkbox" value="${g.numero}" checked>
+            ${g.nom}
+          </label>
+        `).join('');
 
-            loader.style.display = "none";
+        document.querySelectorAll('.gen-checkbox').forEach(cb => {
+          cb.addEventListener('change', envoyerSelectionGenerations);
+        });
+      }
 
-            searchDiv.innerHTML = `
-              🔥 FireDarkRP 🔥<br><br>
-              <img src="https://lh3.googleusercontent.com/d/1Yem4fUAh2zVUXMppQKUqp2j87rGKmYui" 
-                  style="width:120px;"><br><br>
-                  
-              <div style="
-                background:rgba(0,0,0,0.7);
-                color:white;
-                padding:15px;
-                border-radius:10px;
-                display:inline-block;
-                text-align:left;
-              ">
-                👤 Pseudo : FireDarkRP<br>
-                📖 Nom : Johnny Granger<br>
-                💬 Discord : fireojnhyn<br>
-                🎂 Âge : 21 ans<br>
-                🎮 Passion : Jeu Vidéo / Dev <br>
-                ⚡ Type : Feu 🔥 / Ténèbres 🌑<br>
-              </div>
-            `;
+      function basculerToutesGenerations(cocher) {
+        document.querySelectorAll('.gen-checkbox').forEach(cb => { cb.checked = cocher; });
+        envoyerSelectionGenerations();
+      }
 
-            document.getElementById("caracteristiques").innerHTML = "";
-            document.getElementById("sensibilites").innerHTML = "";
-            document.getElementById("stats").innerHTML = "";
+      function envoyerSelectionGenerations() {
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
+            .map(cb => parseInt(cb.value, 10));
+          connexionMultijoueur.send({ type: 'selectionGen', generations: numerosSelectionnes });
+        }
+      }
 
-            return;
-          }
+      function appliquerSelectionGenerations(numerosSelectionnes) {
+        document.querySelectorAll('.gen-checkbox').forEach(cb => {
+          cb.checked = numerosSelectionnes.includes(parseInt(cb.value, 10));
+        });
+      }
 
-          // Affichage Pokémon
-          searchDiv.innerHTML = `
-            ${result.name}<br>
-            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${result.index}.png"
-                style="width:120px; image-rendering:pixelated;">
+      async function obtenirPokemonsFiltresParGeneration() {
+        const liste = await chargerPokemons();
+        const generations = await chargerGenerations();
+
+        const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
+          .map(cb => parseInt(cb.value, 10));
+
+        if (numerosSelectionnes.length === 0) {
+          return [];
+        }
+
+        const plagesSelectionnees = generations.filter(g => numerosSelectionnes.includes(g.numero));
+
+        return liste.filter(p =>
+          plagesSelectionnees.some(g => p.id >= g.min && p.id <= g.max)
+        );
+      }
+
+      function choisirPokemonsAleatoires(liste, quantite) {
+        const indicesChoisis = new Set();
+        while (indicesChoisis.size < quantite && indicesChoisis.size < liste.length) {
+          indicesChoisis.add(Math.floor(Math.random() * liste.length));
+        }
+        return [...indicesChoisis].map(i => liste[i]);
+      }
+
+      function afficherPokemons(pokemons) {
+        const container = document.getElementById('pokemonContainer');
+        container.innerHTML = '';
+
+        pokemons.forEach(p => {
+          const carte = document.createElement('div');
+          carte.className = 'pokemon-card';
+          carte.title = 'Cliquer pour voir sa fiche';
+          carte.onclick = () => {
+            document.getElementById('rechercheInput').value = p.nom;
+            document.getElementById('rechercheInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            lancerAffichageFiche(p.id, p.nom);
+          };
+
+          const idFormate = String(p.id).padStart(3, '0');
+          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+
+          carte.innerHTML = `
+            <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+            <p>${p.nom}</p>
+            <span class="num">#${idFormate}</span>
           `;
 
-          google.script.run
-            .withSuccessHandler(function(carac) {
-
-              if (carac.error) {
-                document.getElementById("caracteristiques").innerHTML =
-                  "Erreur caractéristiques : " + carac.error;
-                return;
-              }
-
-              afficherCaracteristiques(carac);
-
-            })
-            .getPokemonCaracteristiques(result.index);
-
-          // 🔥 Appel sensibilités avec ID
-          google.script.run
-            .withSuccessHandler(function(multipliers) {
-
-              loader.style.display = "none";
-
-              if (multipliers.error) {
-                sensDiv.innerHTML = "Erreur API : " + multipliers.error;
-                return;
-              }
-
-              afficherSensibilites(multipliers);
-
-            })
-            .getPokemonSensibilites(result.index);
-
-          google.script.run
-            .withSuccessHandler(function(stats) {
-
-              if (stats.error) {
-                document.getElementById("stats").innerHTML =
-                  "Erreur stats : " + stats.error;
-                return;
-              }
-
-              afficherStats(stats);
-
-            })
-            .getPokemonStats(result.index);
-
-        }).searchPokemon(nom);
-
-        
+          container.appendChild(carte);
+        });
       }
 
-    
-      function afficherCaracteristiques(data) {
+      async function tirerPokemons() {
+        if (modeMultijoueur) {
+          return tirerPokemonsMultijoueur();
+        }
 
-        if (!data || data.error) {
-          document.getElementById("caracteristiques").innerHTML =
-            "Erreur : " + (data?.error || "Données indisponibles");
+        const container = document.getElementById('pokemonContainer');
+        try {
+          const listeFiltree = await obtenirPokemonsFiltresParGeneration();
+
+          if (listeFiltree.length === 0) {
+            container.innerHTML = '<p id="erreurMsg">Sélectionne au moins une génération avant de tirer.</p>';
+            return;
+          }
+
+          const pokemonsTires = choisirPokemonsAleatoires(listeFiltree, 3);
+          afficherPokemons(pokemonsTires);
+        } catch (erreur) {
+          container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt ou ../BDD/genPokemon.txt).</p>';
+          console.error(erreur);
+        }
+      }
+
+      // ================= Mode multijoueur : tour par tour =================
+
+      let modeMultijoueur = false;
+      let monRoleJeu = null;            // 'hote' | 'joueur'
+      let tourDe = 'hote';              // à qui de tirer actuellement
+      let tirageActuel = [];            // les 3 pokémon du round en cours
+      let tirageEffectue = false;       // un tirage a-t-il été fait ce round ?
+      let indicesEnvoyes = false;
+      let indicesActuels = ['', '', ''];
+      let choixEffectue = false;        // le joueur qui devine a-t-il choisi ?
+      let indexChoisi = null;
+      let revelesTableau = [false, false, false];
+      let equipes = { hote: [], joueur: [] };
+
+      function estMonTour() {
+        return monRoleJeu === tourDe;
+      }
+
+      function basculerTour() {
+        tourDe = (tourDe === 'hote') ? 'joueur' : 'hote';
+      }
+
+      function reinitialiserRoundMultijoueur() {
+        tirageActuel = [];
+        tirageEffectue = false;
+        indicesEnvoyes = false;
+        indicesActuels = ['', '', ''];
+        choixEffectue = false;
+        indexChoisi = null;
+        revelesTableau = [false, false, false];
+      }
+
+      function initialiserModeMultijoueurJeu() {
+        modeMultijoueur = true;
+        monRoleJeu = sessionStorage.getItem('mp_role') === 'hote' ? 'hote' : 'joueur';
+        tourDe = 'hote';
+        reinitialiserRoundMultijoueur();
+        rafraichirVueMultijoueur();
+      }
+
+      async function tirerPokemonsMultijoueur() {
+        if (!estMonTour() || tirageEffectue) return;
+
+        const listeFiltree = await obtenirPokemonsFiltresParGeneration();
+        if (listeFiltree.length === 0) {
+          document.getElementById('pokemonContainer').innerHTML =
+            '<p id="erreurMsg">Sélectionne au moins une génération avant de tirer.</p>';
           return;
         }
 
-        // Nom du Pokémon (on le récupère depuis le searchResult)
-        const nomPokemon = document.getElementById("searchResult")
-          .innerText.split("\n")[0].trim();
+        tirageActuel = choisirPokemonsAleatoires(listeFiltree, 3);
+        tirageEffectue = true;
 
-        const urlPokepedia =
-          "https://www.pokepedia.fr/" + encodeURIComponent(nomPokemon);
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'tirage', pokemons: tirageActuel });
+        }
 
-        let html = `
-          <div style="
-            border:2px solid #3c9c2c;
-            border-radius:10px;
-            overflow:hidden;
-            width:95%;
-            margin:20px auto;
-            background:#f8f8f8;
-          ">
-            <div style="
-              background:#3c9c2c;
-              color:white;
-              padding:10px;
-              font-weight:bold;
-              font-size:18px;
-            ">
-              Caractéristiques
-            </div>
+        rafraichirVueMultijoueur();
+      }
 
-            <div style="padding:15px; text-align:left;">
-        `;
+      function envoyerIndices() {
+        indicesActuels = [0, 1, 2].map(i => {
+          const champ = document.getElementById('indiceTexte-' + i);
+          return champ ? champ.value.trim() : '';
+        });
+        indicesEnvoyes = true;
 
-        html += `<p><b>Génération :</b> ${data.generation}</p>`;
-        html += `<p><b>Numéro de pokédex :</b> ${data.numero}</p>`;
-        html += `<p><b>Types :</b> ${data.types.join(" / ")}</p>`;
-        html += `<p><b>Catégorie :</b> ${data.category}</p>`;
-        html += `<p><b>Taille :</b> ${data.height}</p>`;
-        html += `<p><b>Poids :</b> ${data.weight}</p>`;
-        html += `<p><b>Couleur :</b> ${data.color}</p>`;
-        html += `<p><b>Taux de capture :</b> ${data.captureRate}</p>`;
-        
-        html += `
-          <hr style="margin:20px 0;">
-          <p><b>Cri du Pokémon :</b></p>
-          ${
-            data.cry
-              ? `<audio controls>
-                  <source src="${data.cry}" type="audio/ogg">
-                  Ton navigateur ne supporte pas l'audio.
-                </audio>
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'indices', textes: indicesActuels });
+        }
 
-                <br>
+        rafraichirVueActive();
+      }
 
-                <button onclick="telechargerCri('${data.cry}')">
-                  Télécharger le cri
-                </button>`
-              : "Aucun cri disponible"
+      function reveler(i) {
+        if (revelesTableau[i]) return;
+        revelesTableau[i] = true;
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'reveal', index: i });
+        }
+
+        rafraichirVueActive();
+      }
+
+      function terminerTour() {
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'finTour' });
+        }
+        basculerTour();
+        reinitialiserRoundMultijoueur();
+        rafraichirVueMultijoueur();
+      }
+
+      function tenterChoix(i) {
+        if (choixEffectue) return;
+
+        const confirmation = confirm('Confirmes-tu ton choix ? Cette action est définitive.');
+        if (!confirmation) return;
+
+        indexChoisi = i;
+        choixEffectue = true;
+        equipes[monRoleJeu].push(tirageActuel[i]);
+
+        if (connexionMultijoueur && connexionMultijoueur.open) {
+          connexionMultijoueur.send({ type: 'choix', index: i, role: monRoleJeu });
+        }
+
+        rafraichirVueMultijoueur();
+      }
+
+      function rafraichirVueMultijoueur() {
+        if (!modeMultijoueur) return;
+
+        if (equipes.hote.length >= 6 && equipes.joueur.length >= 6) {
+          afficherEquipesFinales();
+          return;
+        }
+
+        if (estMonTour()) {
+          rafraichirVueActive();
+        } else {
+          rafraichirVueAttente();
+        }
+      }
+
+      function rafraichirVueActive() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-connecte">🎯 C\'est ton tour !</span>';
+
+        const boutonTirage = document.getElementById('tirageBtn');
+        const zoneActions = document.getElementById('zoneActionsMultijoueur');
+
+        if (!tirageEffectue) {
+          boutonTirage.style.display = 'inline-block';
+          boutonTirage.disabled = false;
+          document.getElementById('pokemonContainer').innerHTML = '';
+          zoneActions.innerHTML = '';
+          return;
+        }
+
+        boutonTirage.style.display = 'none';
+
+        afficherPokemons(tirageActuel);
+
+        const cartes = document.querySelectorAll('#pokemonContainer .pokemon-card');
+        cartes.forEach((carte, i) => {
+          const zone = document.createElement('div');
+          zone.className = 'zone-indice';
+          zone.onclick = (e) => e.stopPropagation();
+
+          if (!indicesEnvoyes) {
+            zone.innerHTML = `<textarea class="indice-texte" id="indiceTexte-${i}" placeholder="Indice pour ce pokémon..."></textarea>`;
+          } else if (!choixEffectue) {
+            zone.innerHTML = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
+          } else {
+            const marque = (i === indexChoisi) ? ' ⭐' : '';
+            zone.innerHTML = revelesTableau[i]
+              ? `<p class="indice-envoye">✅ Révélé${marque}</p>`
+              : `<button class="btn-reveler" onclick="reveler(${i})">👁️ Révéler${marque}</button>`;
           }
-        `;
 
-        html += `
-          <hr style="margin:20px 0;">
-          <p><b>Description Pokédex :</b><br>${data.description}</p>
-
-          <hr style="margin:20px 0;">
-
-          <p style="font-size:14px;">
-            Si vous souhaitez connaître les <b>talents</b>, les 
-            <b>groupes d'Œuf</b> ou l'<b>apparence du corps</b>,<br>
-            rendez-vous sur :
-            <br><br>
-            <a href="${urlPokepedia}" target="_blank" 
-              style="color:#3c9c2c; font-weight:bold;">
-              Poképédia - ${nomPokemon}
-            </a>
-          </p>
-
-            </div>
-          </div>
-        `;
-
-        document.getElementById("caracteristiques").innerHTML = html;
-      }
-
-
-      function afficherSensibilites(multipliers) {
-
-        const typeColors = {
-          normal:"#A8A77A", fire:"#EE8130", water:"#6390F0",
-          electric:"#F7D02C", grass:"#7AC74C", ice:"#96D9D6",
-          fighting:"#C22E28", poison:"#A33EA1", ground:"#E2BF65",
-          flying:"#A98FF3", psychic:"#F95587", bug:"#A6B91A",
-          rock:"#B6A136", ghost:"#735797", dragon:"#6F35FC",
-          dark:"#705746", steel:"#B7B7CE", fairy:"#D685AD"
-        };
-
-        const typeFR = {
-          normal:"Normal", fire:"Feu", water:"Eau",
-          electric:"Électrik", grass:"Plante", ice:"Glace",
-          fighting:"Combat", poison:"Poison", ground:"Sol",
-          flying:"Vol", psychic:"Psy", bug:"Insecte",
-          rock:"Roche", ghost:"Spectre", dragon:"Dragon",
-          dark:"Ténèbres", steel:"Acier", fairy:"Fée"
-        };
-
-        let html = `
-          <div style="
-            border:2px solid #3c9c2c;
-            border-radius:10px;
-            overflow:hidden;
-            width:95%;
-            margin:20px auto;
-            background:#f8f8f8;
-          ">
-            <div style="
-              background:#3c9c2c;
-              color:white;
-              padding:10px;
-              font-weight:bold;
-              font-size:18px;
-            ">
-              Sensibilités
-            </div>
-
-            <div style="
-              display:flex;
-              flex-wrap:wrap;
-              justify-content:center;
-              padding:15px;
-              gap:8px;
-            ">
-        `;
-
-        Object.keys(multipliers).forEach(type => {
-
-          const mult = multipliers[type];
-
-          let label =
-            mult === 0 ? "x0" :
-            mult === 0.25 ? "x¼" :
-            mult === 0.5 ? "x½" :
-            mult === 2 ? "x2" :
-            mult === 4 ? "x4" :
-            "x1"; // neutre
-
-          html += `
-            <div style="
-              background:${typeColors[type]};
-              color:white;
-              width:100px;
-              border-radius:8px;
-              padding:6px;
-              text-align:center;
-              font-weight:bold;
-              box-shadow:0 2px 4px rgba(0,0,0,0.2);
-            ">
-              <div>${typeFR[type]}</div>
-              <div style="font-size:14px; margin-top:4px;">${label}</div>
-            </div>
-          `;
+          carte.appendChild(zone);
         });
 
-        html += `
-            </div>
+        if (!indicesEnvoyes) {
+          zoneActions.innerHTML = '<button onclick="envoyerIndices()">📨 Envoyer les indices</button>';
+        } else if (!choixEffectue) {
+          zoneActions.innerHTML = '<span class="badge-multijoueur badge-attente">⏳ En attente du choix de l\'autre joueur...</span>';
+        } else {
+          zoneActions.innerHTML = '<button onclick="terminerTour()">✅ Terminer mon tour</button>';
+        }
+      }
 
-            <div style="
-              background:#e9e9e9;
-              padding:10px;
-              font-size:14px;
-            ">
-              <b>Légende :</b>
-              x0 = Immunité |
-              x½ = Résistance |
-              x¼ = Double résistance |
-              x2 = Faiblesse |
-              x4 = Double faiblesse |
-              x1 = Neutre
-            </div>
-
+      function genererBoitesNoires(message) {
+        return [0, 1, 2].map(() => `
+          <div class="boite-noire boite-inactive">
+            <div class="point-interrogation">❔</div>
+            <p class="indice-boite">${message}</p>
           </div>
-        `;
-
-        document.getElementById("sensibilites").innerHTML = html;
+        `).join('');
       }
 
+      function rafraichirVueAttente() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-attente">⏳ C\'est le tour de l\'autre joueur...</span>';
 
-      function afficherStats(stats) {
+        document.getElementById('tirageBtn').style.display = 'none';
+        document.getElementById('zoneActionsMultijoueur').innerHTML = '';
 
-        const statFR = {
-          hp: "PV",
-          attack: "Attaque",
-          defense: "Défense",
-          "special-attack": "Attaque Spé",
-          "special-defense": "Défense Spé",
-          speed: "Vitesse"
-        };
+        const container = document.getElementById('pokemonContainer');
 
-        const maxStat = 200; // pour largeur max des barres
+        if (!tirageEffectue) {
+          container.innerHTML = genererBoitesNoires('En attente du tirage...');
+          return;
+        }
 
-        let html = `
-          <div style="
-            border:2px solid #3c9c2c;
-            border-radius:10px;
-            overflow:hidden;
-            width:95%;
-            margin:20px auto;
-            background:#f8f8f8;
-          ">
-            <div style="
-              background:#3c9c2c;
-              color:white;
-              padding:10px;
-              font-weight:bold;
-              font-size:18px;
-            ">
-              Statistiques de base
-            </div>
+        if (!indicesEnvoyes) {
+          container.innerHTML = genererBoitesNoires('En attente des indices...');
+          return;
+        }
 
-            <div style="padding:15px;">
-        `;
-
-        let total = 0;
-
-        Object.keys(statFR).forEach(key => {
-
-          const value = stats[key];
-          total += value;
-
-          const widthPercent = (value / maxStat) * 100;
-
-          html += `
-            <div style="margin-bottom:10px; text-align:left;">
-              <b>${statFR[key]}</b> (${value})
-              <div style="
-                background:#ddd;
-                height:12px;
-                border-radius:6px;
-                margin-top:4px;
-              ">
-                <div style="
-                  width:${widthPercent}%;
-                  background:#4CAF50;
-                  height:100%;
-                  border-radius:6px;
-                "></div>
+        container.innerHTML = tirageActuel.map((p, i) => {
+          if (revelesTableau[i]) {
+            const idFormate = String(p.id).padStart(3, '0');
+            const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+            const marque = (i === indexChoisi) ? '<p class="marque-choix">🎉 Ton choix !</p>' : '';
+            return `
+              <div class="pokemon-card">
+                <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+                <p>${p.nom}</p>
+                <span class="num">#${idFormate}</span>
+                ${marque}
               </div>
-            </div>
-          `;
-        });
-
-        html += `
-              <div style="margin-top:15px; font-weight:bold;">
-                Total : ${total}
-              </div>
-            </div>
-          </div>
-        `;
-
-        document.getElementById("stats").innerHTML = html;
-      }
-
-
-
-      function chargerListePokemon() {
-        google.script.run.withSuccessHandler(function(noms) {
-
-          const datalist = document.getElementById("pokemonList");
-          datalist.innerHTML = "";
-
-          noms.forEach(nom => {
-            const option = document.createElement("option");
-            option.value = nom;
-            datalist.appendChild(option);
-          });
-
-        }).getAllPokemonNames();
-      }
-
-      function selectionPokemon(nom) {
-
-        // Remplit la barre de recherche
-        document.getElementById("searchInput").value = nom;
-
-        // Lance directement la recherche
-        chercher();
-      }
-
-      function telechargerCri(url) {
-
-        fetch(url)
-          .then(response => response.blob())
-          .then(blob => {
-
-            const blobUrl = window.URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = blobUrl;
-            a.download = "Cri_Pokemon.ogg";
-
-            document.body.appendChild(a);
-            a.click();
-
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(blobUrl);
-          })
-          .catch(err => {
-            alert("Erreur lors du téléchargement du cri");
-            console.error(err);
-          });
-      }
-
-
-      function chargerGenerations() {
-
-        google.script.run.withSuccessHandler(function(gens) {
-
-          const container = document.getElementById("genContainer");
-          container.innerHTML = "";
-
-          gens.forEach(line => {
-
-            const genName = line.split(":")[0];
-
-            const label = document.createElement("label");
-            label.style.marginRight = "10px";
-
-            label.innerHTML = `
-              <input type="checkbox" value="${genName}" checked>
-              ${genName}
             `;
+          }
 
-            container.appendChild(label);
-          });
+          const classeChoisie = (choixEffectue && i === indexChoisi) ? ' boite-choisie' : '';
+          const classeInactive = choixEffectue ? ' boite-inactive' : '';
+          const texteStatut = choixEffectue
+            ? (i === indexChoisi ? '🔒 Choix enregistré' : '')
+            : `💬 ${indicesActuels[i] || "(pas d'indice)"}`;
+          const clic = choixEffectue ? '' : `onclick="tenterChoix(${i})"`;
 
-        }).getGenerations();
+          return `
+            <div class="boite-noire${classeChoisie}${classeInactive}" ${clic}>
+              <div class="point-interrogation">❔</div>
+              <p class="indice-boite">${texteStatut}</p>
+            </div>
+          `;
+        }).join('');
       }
 
-    </script>
+      function afficherEquipesFinales() {
+        document.getElementById('statutTourZone').innerHTML =
+          '<span class="badge-multijoueur badge-connecte">🏆 Équipes complètes !</span>';
+        document.getElementById('tirageBtn').style.display = 'none';
+        document.getElementById('zoneActionsMultijoueur').innerHTML = '';
+        document.getElementById('pokemonContainer').innerHTML = '';
+        document.getElementById('filtresGenerations').innerHTML = '';
 
+        const zone = document.getElementById('equipesFinaleZone');
+        zone.style.display = 'block';
+
+        const genererListe = (liste) => liste.map(p => {
+          const idFormate = String(p.id).padStart(3, '0');
+          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          return `
+            <div class="pokemon-card">
+              <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
+              <p>${p.nom}</p>
+              <span class="num">#${idFormate}</span>
+            </div>
+          `;
+        }).join('');
+
+        const monEquipe = equipes[monRoleJeu];
+        const equipeAdverse = equipes[monRoleJeu === 'hote' ? 'joueur' : 'hote'];
+
+        zone.innerHTML = `
+          <h2 class="titre-equipe">🎉 Ton équipe</h2>
+          <div class="pokemon-team-grid">${genererListe(monEquipe)}</div>
+          <h2 class="titre-equipe">Équipe adverse</h2>
+          <div class="pokemon-team-grid">${genererListe(equipeAdverse)}</div>
+        `;
+      }
+
+      // ---------- Connexion multijoueur (reprise depuis le salon) ----------
+
+      const PREFIXE_SALON = 'starter-aveugle-';
+      let peerMultijoueur = null;
+      let connexionMultijoueur = null;
+
+      function afficherBadgeMultijoueur(texte, classe) {
+        const badge = document.getElementById('badgeMultijoueur');
+        badge.innerHTML = `<span class="badge-multijoueur ${classe}">${texte}</span>`;
+      }
+
+      function configurerConnexionMultijoueur() {
+        connexionMultijoueur.on('open', () => {
+          afficherBadgeMultijoueur('🟢 Connecté avec l\'autre joueur', 'badge-connecte');
+        });
+
+        connexionMultijoueur.on('data', (donnee) => {
+          if (!donnee || !donnee.type) return;
+
+          switch (donnee.type) {
+            case 'tirage':
+              if (modeMultijoueur) {
+                tirageActuel = donnee.pokemons;
+                tirageEffectue = true;
+                rafraichirVueMultijoueur();
+              } else {
+                afficherPokemons(donnee.pokemons);
+              }
+              break;
+
+            case 'selectionGen':
+              appliquerSelectionGenerations(donnee.generations);
+              break;
+
+            case 'indices':
+              indicesActuels = donnee.textes;
+              indicesEnvoyes = true;
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'choix':
+              indexChoisi = donnee.index;
+              choixEffectue = true;
+              equipes[donnee.role].push(tirageActuel[donnee.index]);
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'reveal':
+              revelesTableau[donnee.index] = true;
+              rafraichirVueMultijoueur();
+              break;
+
+            case 'finTour':
+              basculerTour();
+              reinitialiserRoundMultijoueur();
+              rafraichirVueMultijoueur();
+              break;
+          }
+        });
+
+        connexionMultijoueur.on('close', () => {
+          afficherBadgeMultijoueur('🔴 Le partenaire s\'est déconnecté', 'badge-erreur');
+        });
+      }
+
+      function creerPeerHote(code, tentative) {
+        peerMultijoueur = new Peer(PREFIXE_SALON + code);
+
+        peerMultijoueur.on('open', () => {
+          peerMultijoueur.on('connection', (conn) => {
+            connexionMultijoueur = conn;
+            configurerConnexionMultijoueur();
+          });
+        });
+
+        peerMultijoueur.on('error', (erreur) => {
+          if (erreur.type === 'unavailable-id' && tentative < 6) {
+            setTimeout(() => creerPeerHote(code, tentative + 1), 500);
+          } else {
+            console.error(erreur);
+            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+          }
+        });
+      }
+
+      function creerPeerJoueur(code, tentative) {
+        peerMultijoueur = new Peer();
+
+        peerMultijoueur.on('open', () => {
+          connexionMultijoueur = peerMultijoueur.connect(PREFIXE_SALON + code);
+          configurerConnexionMultijoueur();
+        });
+
+        peerMultijoueur.on('error', (erreur) => {
+          if (erreur.type === 'peer-unavailable' && tentative < 6) {
+            setTimeout(() => creerPeerJoueur(code, tentative + 1), 500);
+          } else {
+            console.error(erreur);
+            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+          }
+        });
+      }
+
+      function initMultijoueurDepuisSession() {
+        const role = sessionStorage.getItem('mp_role');
+        const code = sessionStorage.getItem('mp_code');
+        if (!role || !code) return;
+
+        afficherBadgeMultijoueur('⏳ Connexion avec l\'autre joueur...', 'badge-attente');
+        initialiserModeMultijoueurJeu();
+
+        if (role === 'hote') {
+          creerPeerHote(code, 0);
+        } else {
+          creerPeerJoueur(code, 0);
+        }
+      }
+
+      function couperEtRetourner(evenement) {
+        evenement.preventDefault();
+
+        if (connexionMultijoueur) {
+          try { connexionMultijoueur.close(); } catch (erreur) { /* ignoré */ }
+        }
+        if (peerMultijoueur) {
+          try { peerMultijoueur.destroy(); } catch (erreur) { /* ignoré */ }
+        }
+
+        sessionStorage.removeItem('mp_role');
+        sessionStorage.removeItem('mp_code');
+
+        window.location.href = './index.html';
+      }
+
+      // ---------- Recherche détaillée d'un pokémon (via PokeAPI) ----------
+
+      const ROMAIN_VERS_NUM = {
+        i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9
+      };
+
+      const TYPES_FR = {
+        normal: 'Normal', fighting: 'Combat', flying: 'Vol', poison: 'Poison',
+        ground: 'Sol', rock: 'Roche', bug: 'Insecte', ghost: 'Spectre',
+        steel: 'Acier', fire: 'Feu', water: 'Eau', grass: 'Plante',
+        electric: 'Électrik', psychic: 'Psy', ice: 'Glace', dragon: 'Dragon',
+        dark: 'Ténèbres', fairy: 'Fée'
+      };
+
+      const COULEURS_FR = {
+        black: 'Noir', blue: 'Bleu', brown: 'Marron', gray: 'Gris',
+        green: 'Vert', pink: 'Rose', purple: 'Violet', red: 'Rouge',
+        white: 'Blanc', yellow: 'Jaune'
+      };
+
+      const TYPE_COULEURS = {
+        normal: '#A8A77A', fire: '#EE8130', water: '#6390F0', electric: '#F7D02C',
+        grass: '#7AC74C', ice: '#96D9D6', fighting: '#C22E28', poison: '#A33EA1',
+        ground: '#E2BF65', flying: '#A98FF3', psychic: '#F95587', bug: '#A6B91A',
+        rock: '#B6A136', ghost: '#735797', dragon: '#6F35FC', dark: '#705746',
+        steel: '#B7B7CE', fairy: '#D685AD'
+      };
+
+      const TYPE_ICONES = {
+        normal: '⚪', fire: '🔥', water: '💧', electric: '⚡', grass: '🌿',
+        ice: '❄️', fighting: '👊', poison: '☠️', ground: '🌍', flying: '🪶',
+        psychic: '👁️', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
+        dark: '🌙', steel: '⚙️', fairy: '✨'
+      };
+
+      function normaliserTexte(texte) {
+        return texte
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+      }
+
+      function afficherErreurRecherche(message) {
+        document.getElementById('rechercheErreurZone').innerHTML =
+          `<p id="rechercheErreur">${message}</p>`;
+      }
+
+      // ---------- Autocomplétion ----------
+
+      let listeReferencePokemons = [];
+
+      function masquerSuggestions() {
+        const listeSuggestions = document.getElementById('suggestionsListe');
+        listeSuggestions.style.display = 'none';
+        listeSuggestions.innerHTML = '';
+      }
+
+      async function afficherSuggestions() {
+        const champ = document.getElementById('rechercheInput');
+        const valeur = champ.value.trim();
+        const listeSuggestions = document.getElementById('suggestionsListe');
+
+        if (!valeur) {
+          masquerSuggestions();
+          return;
+        }
+
+        if (listeReferencePokemons.length === 0) {
+          listeReferencePokemons = await chargerPokemons();
+        }
+
+        let resultats;
+        if (/^\d+$/.test(valeur)) {
+          resultats = listeReferencePokemons.filter(p => String(p.id).includes(valeur));
+        } else {
+          const valeurNorm = normaliserTexte(valeur);
+          resultats = listeReferencePokemons.filter(p =>
+            normaliserTexte(p.nom).includes(valeurNorm)
+          );
+          resultats.sort((a, b) => {
+            const aCommence = normaliserTexte(a.nom).startsWith(valeurNorm) ? 0 : 1;
+            const bCommence = normaliserTexte(b.nom).startsWith(valeurNorm) ? 0 : 1;
+            return aCommence - bCommence;
+          });
+        }
+
+        resultats = resultats.slice(0, 8);
+
+        if (resultats.length === 0) {
+          masquerSuggestions();
+          return;
+        }
+
+        listeSuggestions.innerHTML = resultats.map(p => {
+          const idFormate = String(p.id).padStart(3, '0');
+          return `<div class="suggestion-item" onclick="choisirSuggestion(${p.id}, '${p.nom.replace(/'/g, "\\'")}')">${p.nom} <span class="num">#${idFormate}</span></div>`;
+        }).join('');
+
+        listeSuggestions.style.display = 'block';
+      }
+
+      function choisirSuggestion(id, nom) {
+        document.getElementById('rechercheInput').value = nom;
+        masquerSuggestions();
+        lancerAffichageFiche(id, nom);
+      }
+
+      async function lancerAffichageFiche(id, nom) {
+        document.getElementById('rechercheErreurZone').innerHTML = '';
+        document.getElementById('ficheCorps').innerHTML =
+          '<p class="fiche-chargement">Chargement des informations...</p>';
+        try {
+          await afficherFicheDetaillee(id, nom);
+        } catch (erreur) {
+          document.getElementById('ficheCorps').innerHTML = '';
+          afficherErreurRecherche("Erreur lors de la récupération des informations.");
+          console.error(erreur);
+        }
+      }
+
+      async function rechercherPokemon() {
+        const champ = document.getElementById('rechercheInput');
+        const requete = champ.value.trim();
+        document.getElementById('rechercheErreurZone').innerHTML = '';
+        masquerSuggestions();
+
+        if (!requete) return;
+
+        try {
+          const liste = await chargerPokemons();
+          let pokemonTrouve = null;
+
+          if (/^\d+$/.test(requete)) {
+            const idRecherche = parseInt(requete, 10);
+            pokemonTrouve = liste.find(p => p.id === idRecherche);
+          } else {
+            const requeteNorm = normaliserTexte(requete);
+            pokemonTrouve = liste.find(p => normaliserTexte(p.nom) === requeteNorm)
+              || liste.find(p => normaliserTexte(p.nom).includes(requeteNorm));
+          }
+
+          if (!pokemonTrouve) {
+            document.getElementById('ficheCorps').innerHTML = '';
+            afficherErreurRecherche(`Aucun pokémon trouvé pour « ${requete} ».`);
+            return;
+          }
+
+          await lancerAffichageFiche(pokemonTrouve.id, pokemonTrouve.nom);
+        } catch (erreur) {
+          afficherErreurRecherche("Erreur lors de la recherche. Réessaie plus tard.");
+          console.error(erreur);
+        }
+      }
+
+      async function afficherFicheDetaillee(id, nomFr) {
+        const [dataPokemon, dataEspece] = await Promise.all([
+          fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json()),
+          fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r => r.json())
+        ]);
+
+        // Génération
+        const genRomain = dataEspece.generation.name.replace('generation-', '');
+        const genNum = ROMAIN_VERS_NUM[genRomain] || genRomain;
+
+        // Types
+        const typesFr = dataPokemon.types
+          .map(t => TYPES_FR[t.type.name] || t.type.name)
+          .join(' / ');
+
+        // Catégorie
+        const genusEntree = dataEspece.genera.find(g => g.language.name === 'fr');
+        const categorie = genusEntree ? genusEntree.genus : '—';
+
+        // Taille / poids
+        const tailleM = (dataPokemon.height / 10).toFixed(1);
+        const poidsKg = (dataPokemon.weight / 10).toFixed(1);
+
+        // Couleur
+        const couleur = COULEURS_FR[dataEspece.color.name] || dataEspece.color.name;
+
+        // Taux de capture
+        const tauxCapture = dataEspece.capture_rate;
+
+        // Cri
+        const criUrl = dataPokemon.cries
+          ? (dataPokemon.cries.latest || dataPokemon.cries.legacy)
+          : null;
+
+        // Description Pokédex (en français)
+        const descriptionEntree = dataEspece.flavor_text_entries.find(
+          f => f.language.name === 'fr'
+        );
+        const description = descriptionEntree
+          ? descriptionEntree.flavor_text.replace(/[\n\f\r]/g, ' ')
+          : '—';
+
+        // Talents (avec traduction française)
+        const talents = await Promise.all(
+          dataPokemon.abilities.map(async a => {
+            try {
+              const detailTalent = await fetch(a.ability.url).then(r => r.json());
+              const nomTalentFr = detailTalent.names.find(n => n.language.name === 'fr');
+              const nom = nomTalentFr ? nomTalentFr.name : detailTalent.name;
+              return nom + (a.is_hidden ? ' (Talent Caché)' : '');
+            } catch {
+              return a.ability.name;
+            }
+          })
+        );
+
+        // Groupes d'œuf (noms français récupérés directement depuis PokeAPI)
+        const groupesOeufListe = await Promise.all(
+          dataEspece.egg_groups.map(async g => {
+            try {
+              const detailGroupe = await fetch(g.url).then(r => r.json());
+              const nomFrGroupe = detailGroupe.names.find(n => n.language.name === 'fr');
+              return nomFrGroupe ? nomFrGroupe.name : detailGroupe.name;
+            } catch {
+              return g.name;
+            }
+          })
+        );
+        const groupesOeuf = groupesOeufListe.join(', ');
+
+        // Lien vers la fiche Poképédia du pokémon
+        const lienPokepedia = `https://www.pokepedia.fr/${nomFr.replace(/ /g, '_')}`;
+
+        // Sensibilités (faiblesses / résistances / immunités selon les types du pokémon)
+        const typesDetails = await Promise.all(
+          dataPokemon.types.map(t => fetch(t.type.url).then(r => r.json()))
+        );
+
+        const multiplicateurs = {};
+        Object.keys(TYPES_FR).forEach(t => { multiplicateurs[t] = 1; });
+
+        typesDetails.forEach(detail => {
+          const relations = detail.damage_relations;
+          relations.double_damage_from.forEach(t => { multiplicateurs[t.name] *= 2; });
+          relations.half_damage_from.forEach(t => { multiplicateurs[t.name] *= 0.5; });
+          relations.no_damage_from.forEach(t => { multiplicateurs[t.name] *= 0; });
+        });
+
+        const formatMult = (m) => (m === 0.25 ? '¼' : m === 0.5 ? '½' : m);
+
+        const ORDRE_TYPES_AFFICHAGE = [
+          'normal', 'grass', 'fire', 'water', 'electric', 'ice', 'fighting',
+          'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost',
+          'dragon', 'dark', 'steel', 'fairy'
+        ];
+
+        const grilleTypesHtml = ORDRE_TYPES_AFFICHAGE.map(type => {
+          const mult = multiplicateurs[type];
+          const couleur = TYPE_COULEURS[type];
+          const icone = TYPE_ICONES[type];
+          const nomTypeFr = TYPES_FR[type];
+          const multHtml = mult !== 1
+            ? `<div class="type-badge-mult">× ${formatMult(mult)}</div>`
+            : '';
+          return `
+            <div class="type-badge" style="background-color:${couleur};">
+              <div class="type-badge-nom">${icone} ${nomTypeFr}</div>
+              ${multHtml}
+            </div>
+          `;
+        }).join('');
+
+        // Statistiques de base
+        const NOMS_STATS_FR = {
+          hp: 'PV',
+          attack: 'Attaque',
+          defense: 'Défense',
+          'special-attack': 'Attaque Spé',
+          'special-defense': 'Défense Spé',
+          speed: 'Vitesse'
+        };
+
+        const ORDRE_STATS = ['hp', 'attack', 'defense', 'special-attack', 'special-defense', 'speed'];
+
+        const statsParNom = {};
+        dataPokemon.stats.forEach(s => { statsParNom[s.stat.name] = s.base_stat; });
+
+        const totalStats = dataPokemon.stats.reduce((somme, s) => somme + s.base_stat, 0);
+
+        const statsHtml = ORDRE_STATS.map(cle => {
+          const valeur = statsParNom[cle] || 0;
+          const pourcentage = Math.min(100, (valeur / 255) * 100);
+          return `
+            <div class="stat-ligne">
+              <div class="stat-nom">${NOMS_STATS_FR[cle]} (${valeur})</div>
+              <div class="stat-barre-fond">
+                <div class="stat-barre-remplie" style="width:${pourcentage}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Sprite
+        const spriteUrl = (dataPokemon.sprites && dataPokemon.sprites.front_default)
+          || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+
+        const idFormate = String(id).padStart(3, '0');
+
+        const criHtml = criUrl
+          ? `<audio controls src="${criUrl}" style="width:100%; margin-top:5px;"></audio>`
+          : '<span>Cri non disponible</span>';
+
+        document.getElementById('ficheCorps').innerHTML = `
+          <h2>${nomFr} <span style="color:#777; font-size:16px;">#${idFormate}</span></h2>
+          <img class="sprite-fiche" src="${spriteUrl}" alt="${nomFr}">
+          <div class="fiche-ligne"><strong>Génération :</strong> ${genNum}</div>
+          <div class="fiche-ligne"><strong>Numéro de Pokédex :</strong> #${idFormate}</div>
+          <div class="fiche-ligne"><strong>Type(s) :</strong> ${typesFr}</div>
+          <div class="fiche-ligne"><strong>Catégorie :</strong> ${categorie}</div>
+          <div class="fiche-ligne"><strong>Taille :</strong> ${tailleM} m</div>
+          <div class="fiche-ligne"><strong>Poids :</strong> ${poidsKg} kg</div>
+          <div class="fiche-ligne"><strong>Couleur :</strong> ${couleur}</div>
+          <div class="fiche-ligne"><strong>Taux de capture :</strong> ${tauxCapture}</div>
+          <div class="fiche-ligne"><strong>Cri :</strong><br>${criHtml}</div>
+          <div class="fiche-ligne"><strong>Description Pokédex :</strong> ${description}</div>
+          <div class="fiche-ligne"><strong>Talents :</strong> ${talents.join(', ')}</div>
+          <div class="fiche-ligne"><strong>Groupe(s) d'Œuf :</strong> ${groupesOeuf}</div>
+          <div class="fiche-ligne" style="text-align:center; margin-top:15px;">
+            <a href="${lienPokepedia}" target="_blank" rel="noopener">📖 Voir la fiche complète sur Poképédia</a>
+          </div>
+
+          <div class="sensi-bloc">
+            <div class="sensi-header">🛡️ Sensibilités</div>
+            <div class="sensi-corps">
+              <div class="types-grid">${grilleTypesHtml}</div>
+            </div>
+          </div>
+
+          <div class="stats-bloc">
+            <div class="stats-header">📊 Statistiques de base</div>
+            <div class="stats-corps">
+              ${statsHtml}
+              <div class="stats-total">Total : ${totalStats}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Gestion des interactions de la barre de recherche
+      document.addEventListener('DOMContentLoaded', () => {
+        initMultijoueurDepuisSession();
+
+        chargerGenerations().then(afficherFiltresGenerations);
+
+        const champRecherche = document.getElementById('rechercheInput');
+        if (champRecherche) {
+          champRecherche.addEventListener('input', afficherSuggestions);
+
+          champRecherche.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') rechercherPokemon();
+          });
+        }
+
+        // Ferme la liste de suggestions si on clique ailleurs sur la page
+        document.addEventListener('click', (e) => {
+          const wrapper = document.querySelector('.recherche-wrapper');
+          if (wrapper && !wrapper.contains(e.target)) {
+            masquerSuggestions();
+          }
+        });
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8">
+    <base target="_top">
+    <title>Salon multijoueur</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+      body {
+        padding-bottom: 300px;
+        font-family: Arial;
+        text-align: center;
+        background-image: url("https://play.pokemonshowdown.com/fx/client-bg-charizards.jpg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+
+      h1 {
+        margin-bottom: 10px;
+      }
+
+      .top-zone {
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      }
+
+      .sous-titre {
+        margin-top: 0;
+        margin-bottom: 25px;
+        font-size: 15px;
+        color: #eee;
+      }
+
+      #BackBtn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        padding: 10px 15px;
+        font-size: 14px;
+        background-color: #3c9c2c;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        z-index: 9999;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-decoration: none;
+      }
+
+      #BackBtn:hover {
+        background-color: #2e7d22;
+      }
+
+      /* Choix du mode */
+      #choixMode {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+      }
+
+      .mode-btn {
+        padding: 16px 26px;
+        font-size: 17px;
+        cursor: pointer;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: 0.3s;
+      }
+
+      #btnModeCreer {
+        background-color: #ff3c3c;
+      }
+
+      #btnModeCreer:hover {
+        background-color: #cc0000;
+      }
+
+      #btnModeRejoindre {
+        background-color: #3c9c2c;
+      }
+
+      #btnModeRejoindre:hover {
+        background-color: #2e7d22;
+      }
+
+      .retour-mode {
+        display: inline-block;
+        margin-bottom: 15px;
+        background: none;
+        border: none;
+        color: #eee;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      /* Carte commune (création / connexion) */
+      .salon-carte {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 14px;
+        padding: 25px;
+        max-width: 340px;
+        margin: 10px auto 0 auto;
+        color: #222;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      }
+
+      #creerBtn, #rejoindreBtn {
+        padding: 12px 28px;
+        font-size: 16px;
+        cursor: pointer;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+
+      #creerBtn {
+        background-color: #ff3c3c;
+      }
+
+      #creerBtn:hover {
+        background-color: #cc0000;
+      }
+
+      #rejoindreBtn {
+        background-color: #3c9c2c;
+        display: block;
+        margin: 15px auto 0 auto;
+      }
+
+      #rejoindreBtn:hover {
+        background-color: #2e7d22;
+      }
+
+      #creerBtn:disabled, #rejoindreBtn:disabled {
+        background-color: #999;
+        cursor: default;
+      }
+
+      .code-salon {
+        font-size: 34px;
+        font-weight: bold;
+        letter-spacing: 6px;
+        background: #f0f0f0;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 15px 0;
+        color: #3c9c2c;
+      }
+
+      #copierBtn {
+        padding: 8px 18px;
+        border-radius: 8px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      #copierBtn:hover {
+        background-color: #2e7d22;
+      }
+
+      #codeInput {
+        font-size: 28px;
+        font-weight: bold;
+        letter-spacing: 8px;
+        text-align: center;
+        text-transform: uppercase;
+        width: 200px;
+        max-width: 90%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 2px solid #3c9c2c;
+        margin: 5px 0 0 0;
+      }
+
+      #statutSalon, #statutRejoindre {
+        margin-top: 18px;
+        font-size: 15px;
+        font-weight: bold;
+      }
+
+      .statut-attente {
+        color: #b8860b;
+      }
+
+      .statut-connecte {
+        color: #2e7d22;
+      }
+
+      .statut-erreur {
+        color: #c0392b;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="button" id="BackBtn" href="./index.html">↩️ Retour</a>
+
+    <div class="top-zone">
+      <h1>🎮 Salon Multijoueur</h1>
+      <p class="sous-titre">Un salon = une partie entre 2 joueurs.</p>
+
+      <!-- Écran de choix -->
+      <div id="choixMode">
+        <button id="btnModeCreer" class="mode-btn" onclick="choisirMode('creer')">🎮 Créer un salon</button>
+        <button id="btnModeRejoindre" class="mode-btn" onclick="choisirMode('rejoindre')">🔗 Rejoindre un salon</button>
+      </div>
+
+      <!-- Zone Créer -->
+      <div id="zoneCreer" style="display:none;">
+        <button class="retour-mode" onclick="retourChoix()">↩️ Changer de mode</button>
+        <div>
+          <button id="creerBtn" onclick="creerSalon()">Créer un salon</button>
+        </div>
+        <div id="salonInfo"></div>
+      </div>
+
+      <!-- Zone Rejoindre -->
+      <div id="zoneRejoindre" style="display:none;">
+        <button class="retour-mode" onclick="retourChoix()">↩️ Changer de mode</button>
+        <div class="salon-carte">
+          <p>Entre le code donné par l'autre joueur :</p>
+          <input type="text" id="codeInput" maxlength="5" placeholder="CODE">
+          <button id="rejoindreBtn" onclick="rejoindreSalon()">Rejoindre</button>
+          <p id="statutRejoindre"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const PREFIXE_SALON = 'starter-aveugle-';
+      let peer = null;
+      let connexionJoueur = null; // utilisé côté hôte
+      let connexionHote = null;   // utilisé côté joueur qui rejoint
+
+      // ---------- Navigation entre les deux modes ----------
+
+      function choisirMode(mode) {
+        document.getElementById('choixMode').style.display = 'none';
+        if (mode === 'creer') {
+          document.getElementById('zoneCreer').style.display = 'block';
+        } else {
+          document.getElementById('zoneRejoindre').style.display = 'block';
+        }
+      }
+
+      function retourChoix() {
+        if (peer) {
+          peer.destroy();
+          peer = null;
+        }
+        connexionJoueur = null;
+        connexionHote = null;
+
+        document.getElementById('zoneCreer').style.display = 'none';
+        document.getElementById('zoneRejoindre').style.display = 'none';
+        document.getElementById('salonInfo').innerHTML = '';
+        document.getElementById('statutRejoindre').textContent = '';
+        document.getElementById('codeInput').value = '';
+        document.getElementById('creerBtn').disabled = false;
+        document.getElementById('rejoindreBtn').disabled = false;
+        document.getElementById('choixMode').style.display = 'flex';
+      }
+
+      // ---------- Mode "Créer un salon" (hôte) ----------
+
+      function genererCode() {
+        // Alphabet sans caractères ambigus (0/O, 1/I)
+        const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 5; i++) {
+          code += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+        }
+        return code;
+      }
+
+      function creerSalon() {
+        document.getElementById('creerBtn').disabled = true;
+
+        const code = genererCode();
+        document.getElementById('salonInfo').innerHTML =
+          `<p style="color:white;">Création du salon <strong>${code}</strong>...</p>`;
+
+        if (peer) {
+          peer.destroy();
+        }
+
+        peer = new Peer(PREFIXE_SALON + code);
+
+        peer.on('open', () => {
+          afficherSalon(code);
+        });
+
+        peer.on('connection', (conn) => {
+          connexionJoueur = conn;
+
+          conn.on('open', () => {
+            const statut = document.getElementById('statutSalon');
+            if (statut) {
+              statut.innerHTML = '✅ Un joueur a rejoint le salon !';
+              statut.className = 'statut-connecte';
+            }
+            afficherBoutonLancer(code);
+          });
+
+          conn.on('data', (donnee) => {
+            console.log('Message reçu du joueur 2 :', donnee);
+          });
+
+          conn.on('close', () => {
+            connexionJoueur = null;
+            const statut = document.getElementById('statutSalon');
+            if (statut) {
+              statut.innerHTML = `⏳ Le joueur 2 s'est déconnecté. En attente sur le code <strong>${code}</strong>...`;
+              statut.className = 'statut-attente';
+            }
+            const boutonLancer = document.getElementById('lancerBtn');
+            if (boutonLancer) boutonLancer.remove();
+          });
+        });
+
+        peer.on('error', (erreur) => {
+          console.error(erreur);
+          if (erreur.type === 'unavailable-id') {
+            // Code déjà pris par un autre salon en cours : on retente avec un nouveau code
+            creerSalon();
+          } else {
+            document.getElementById('salonInfo').innerHTML =
+              '<p style="color:white;">Erreur lors de la création du salon. Vérifie ta connexion et réessaie.</p>';
+            document.getElementById('creerBtn').disabled = false;
+          }
+        });
+      }
+
+      function afficherSalon(code) {
+        document.getElementById('salonInfo').innerHTML = `
+          <div class="salon-carte">
+            <p>Communique ce code à l'autre joueur :</p>
+            <div class="code-salon">${code}</div>
+            <button id="copierBtn" onclick="copierCode('${code}')">📋 Copier le code</button>
+            <p id="statutSalon" class="statut-attente">⏳ En attente qu'un joueur rejoigne...</p>
+          </div>
+        `;
+      }
+
+      function copierCode(code) {
+        navigator.clipboard.writeText(code).then(() => {
+          const bouton = document.getElementById('copierBtn');
+          const texteOriginal = bouton.textContent;
+          bouton.textContent = '✅ Copié !';
+          setTimeout(() => { bouton.textContent = texteOriginal; }, 1500);
+        });
+      }
+
+      function afficherBoutonLancer(code) {
+        if (document.getElementById('lancerBtn')) return;
+
+        const carte = document.querySelector('#salonInfo .salon-carte');
+        const bouton = document.createElement('button');
+        bouton.id = 'lancerBtn';
+        bouton.textContent = '🚀 Lancer la partie';
+        bouton.style.marginTop = '15px';
+        bouton.style.padding = '12px 26px';
+        bouton.style.fontSize = '16px';
+        bouton.style.cursor = 'pointer';
+        bouton.style.backgroundColor = '#ff3c3c';
+        bouton.style.color = 'white';
+        bouton.style.border = 'none';
+        bouton.style.borderRadius = '8px';
+        bouton.style.fontWeight = 'bold';
+        bouton.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+        bouton.onclick = () => lancerPartie(code);
+        carte.appendChild(bouton);
+      }
+
+      function lancerPartie(code) {
+        if (connexionJoueur && connexionJoueur.open) {
+          connexionJoueur.send({ type: 'lancerPartie' });
+        }
+        sessionStorage.setItem('mp_role', 'hote');
+        sessionStorage.setItem('mp_code', code);
+        window.location.href = './starter.html';
+      }
+
+      // ---------- Mode "Rejoindre un salon" (joueur 2) ----------
+
+      document.getElementById('codeInput').addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      });
+
+      document.getElementById('codeInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') rejoindreSalon();
+      });
+
+      function afficherStatutRejoindre(message, classe) {
+        const statut = document.getElementById('statutRejoindre');
+        statut.textContent = message;
+        statut.className = classe;
+      }
+
+      function rejoindreSalon() {
+        const code = document.getElementById('codeInput').value.trim();
+
+        if (code.length === 0) {
+          afficherStatutRejoindre('Entre un code avant de rejoindre.', 'statut-erreur');
+          return;
+        }
+
+        document.getElementById('rejoindreBtn').disabled = true;
+        afficherStatutRejoindre('Connexion en cours...', 'statut-attente');
+
+        if (peer) {
+          peer.destroy();
+        }
+
+        peer = new Peer();
+
+        peer.on('open', () => {
+          connexionHote = peer.connect(PREFIXE_SALON + code);
+
+          connexionHote.on('open', () => {
+            afficherStatutRejoindre('✅ Connecté au salon ' + code + ' ! En attente que l\'hôte lance la partie...', 'statut-connecte');
+          });
+
+          connexionHote.on('data', (donnee) => {
+            if (donnee && donnee.type === 'lancerPartie') {
+              sessionStorage.setItem('mp_role', 'joueur');
+              sessionStorage.setItem('mp_code', code);
+              window.location.href = './starter.html';
+            }
+          });
+
+          connexionHote.on('close', () => {
+            afficherStatutRejoindre('La connexion avec l\'hôte a été coupée.', 'statut-erreur');
+            document.getElementById('rejoindreBtn').disabled = false;
+          });
+
+          connexionHote.on('error', () => {
+            afficherStatutRejoindre('Impossible de se connecter à ce salon.', 'statut-erreur');
+            document.getElementById('rejoindreBtn').disabled = false;
+          });
+        });
+
+        peer.on('error', (erreur) => {
+          console.error(erreur);
+          if (erreur.type === 'peer-unavailable') {
+            afficherStatutRejoindre('Aucun salon trouvé avec ce code. Vérifie-le et réessaie.', 'statut-erreur');
+          } else {
+            afficherStatutRejoindre('Erreur de connexion. Vérifie ta connexion internet et réessaie.', 'statut-erreur');
+          }
+          document.getElementById('rejoindreBtn').disabled = false;
+        });
+      }
+    </script>
+  </body>
+</html>
