@@ -1,0 +1,53 @@
+- Ajouté le système de form régionale
+
+
+
+
+
+- Amélioré le texte pour pokémon showdown
+
+Prompt :
+Voici mon fichier starter.html peut tu le modifié le texte pour pokémon shodown pour y inclure le talant et les attaques du pokémon les plus utilisé en stratégie
+(Attention tout est écrit en anglais)
+Exemple d'un fichier de pokémon shodown :
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out  
+
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out  
+
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out   
+
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out  
+
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out  
+
+Hitmontop  
+Ability: Technician
+- Aerial Ace  
+- Brutal Swing  
+- Covet  
+- Fake Out
