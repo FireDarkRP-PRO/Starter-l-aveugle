@@ -1,3 +1,3 @@
-- Ajouté le système de form régionale
-    Ne pas les ajouté au pokémon existant sinon il auront plus de chance d'être prit
-    Si un pokémon choisi a une form régional, alors on recupère une de ces form de manière random
+- Désactivé la recherche pour le joueur qui choisi un pokémon
+
+- ajouté des règle prédéfini pour l'envoie d'indice 
