@@ -999,6 +999,26 @@
         return monRoleJeu === tourDe;
       }
 
+      /* Le joueur qui doit deviner (ce n'est pas son tour de tirer) ne doit pas pouvoir
+      chercher le pokémon lui-même pendant qu'il attend/choisit :
+      ça reviendrait à tricher. On masque et on désactive la barre de recherche dans ce cas,
+      et on la réaffiche dès que c'est à nouveau son tour de tirer.*/
+      function mettreAJourVisibiliteRecherche(masquer) {
+        const zone = document.querySelector('.zone-recherche');
+        if (!zone) return;
+
+        zone.style.display = masquer ? 'none' : '';
+        document.getElementById('rechercheInput').disabled = masquer;
+        document.getElementById('rechercheBtn').disabled = masquer;
+
+        if (masquer) {
+          document.getElementById('rechercheInput').value = '';
+          document.getElementById('suggestionsListe').innerHTML = '';
+          document.getElementById('rechercheErreurZone').innerHTML = '';
+          document.getElementById('ficheCorps').innerHTML = '';
+        }
+      }
+
       function basculerTour() {
         tourDe = (tourDe === 'hote') ? 'joueur' : 'hote';
       }
@@ -1266,6 +1286,8 @@
       }
 
       function rafraichirVueActive() {
+        mettreAJourVisibiliteRecherche(false);
+
         document.getElementById('statutTourZone').innerHTML =
           '<span class="badge-multijoueur badge-connecte">🎯 C\'est ton tour !</span>';
 
@@ -1333,6 +1355,8 @@
       }
 
       function rafraichirVueAttente() {
+        mettreAJourVisibiliteRecherche(true);
+
         document.getElementById('statutTourZone').innerHTML =
           '<span class="badge-multijoueur badge-attente">⏳ C\'est le tour de l\'autre joueur...</span>';
 
