@@ -202,6 +202,19 @@
         margin-top: 15px;
       }
 
+      .regle-indice-zone {
+        margin-bottom: 10px;
+      }
+
+      .regle-indice-zone select {
+        padding: 6px 10px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-family: Arial;
+        cursor: pointer;
+      }
+
       #zoneActionsMultijoueur button {
         padding: 12px 24px;
         font-size: 15px;
@@ -998,6 +1011,126 @@
         choixEffectue = false;
         indexChoisi = null;
         revelesTableau = [false, false, false];
+        Object.keys(donneesPokemonIndiceCache).forEach(cle => delete donneesPokemonIndiceCache[cle]);
+      }
+
+      // ---------- Indices prédéfinis ----------
+      // Une règle sélectionnée dans le menu déroulant PRÉ-REMPLIT les 3 zones de
+      // texte avec la vraie valeur correspondante pour chaque pokémon, mais ne
+      // les envoie jamais toute seule : le joueur reste libre de modifier le
+      // texte avant de cliquer sur "Envoyer les indices".
+      const reglesIndicesPredefinies = {
+        generation: 'Génération',
+        numero: 'Numéro de Pokédex',
+        types: 'Types',
+        categorie: 'Catégorie',
+        taille: 'Taille',
+        poids: 'Poids',
+        couleur: 'Couleur',
+        capture: 'Taux de capture',
+        description: 'Description Pokédex',
+        talents: 'Talents',
+        groupesOeuf: "Groupes d'Œuf"
+      };
+
+      const typesEnFrancais = {
+        normal: 'Normal', fire: 'Feu', water: 'Eau', electric: 'Électrik', grass: 'Plante',
+        ice: 'Glace', fighting: 'Combat', poison: 'Poison', ground: 'Sol', flying: 'Vol',
+        psychic: 'Psy', bug: 'Insecte', rock: 'Roche', ghost: 'Spectre', dragon: 'Dragon',
+        dark: 'Ténèbres', steel: 'Acier', fairy: 'Fée'
+      };
+
+      const couleursEnFrancais = {
+        black: 'Noir', blue: 'Bleu', brown: 'Marron', gray: 'Gris', green: 'Vert',
+        pink: 'Rose', purple: 'Violet', red: 'Rouge', white: 'Blanc', yellow: 'Jaune'
+      };
+
+      const donneesPokemonIndiceCache = {};
+
+      async function recupererDonneesIndice(p) {
+        if (donneesPokemonIndiceCache[p.id]) return donneesPokemonIndiceCache[p.id];
+
+        const dataPokemon = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`).then(r => r.json());
+        const dataEspece = await fetch(dataPokemon.species.url).then(r => r.json());
+
+        const donnees = { dataPokemon, dataEspece };
+        donneesPokemonIndiceCache[p.id] = donnees;
+        return donnees;
+      }
+
+      async function genererTexteIndicePredefini(p, regle) {
+        const { dataPokemon, dataEspece } = await recupererDonneesIndice(p);
+
+        switch (regle) {
+          case 'generation': {
+            const chiffresRomains = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9 };
+            const numero = dataEspece.generation.name.split('-')[1];
+            return `Génération ${chiffresRomains[numero] || numero}`;
+          }
+          case 'numero':
+            return `N° ${String(dataEspece.id).padStart(3, '0')}`;
+          case 'types':
+            return dataPokemon.types.map(t => typesEnFrancais[t.type.name] || t.type.name).join(' / ');
+          case 'categorie': {
+            const genre = dataEspece.genera.find(g => g.language.name === 'fr');
+            return genre ? genre.genus : '(catégorie inconnue)';
+          }
+          case 'taille':
+            return `${(dataPokemon.height / 10).toLocaleString('fr-FR')} m`;
+          case 'poids':
+            return `${(dataPokemon.weight / 10).toLocaleString('fr-FR')} kg`;
+          case 'couleur':
+            return couleursEnFrancais[dataEspece.color.name] || dataEspece.color.name;
+          case 'capture':
+            return `Taux de capture : ${dataEspece.capture_rate}/255`;
+          case 'description': {
+            const entree = dataEspece.flavor_text_entries.find(e => e.language.name === 'fr')
+              || dataEspece.flavor_text_entries.find(e => e.language.name === 'en');
+            return entree ? entree.flavor_text.replace(/[\n\f\r]/g, ' ') : '(description indisponible)';
+          }
+          case 'talents': {
+            const talents = await Promise.all(dataPokemon.abilities.map(async a => {
+              const dataTalent = await fetch(a.ability.url).then(r => r.json());
+              const nomFr = dataTalent.names.find(n => n.language.name === 'fr');
+              const nom = nomFr ? nomFr.name : a.ability.name;
+              return a.is_hidden ? `${nom} (caché)` : nom;
+            }));
+            return talents.join(', ');
+          }
+          case 'groupesOeuf': {
+            const groupes = await Promise.all(dataEspece.egg_groups.map(async g => {
+              const dataGroupe = await fetch(g.url).then(r => r.json());
+              const nomFr = dataGroupe.names.find(n => n.language.name === 'fr');
+              return nomFr ? nomFr.name : g.name;
+            }));
+            return groupes.join(', ');
+          }
+          default:
+            return '';
+        }
+      }
+
+      async function appliquerRegleIndice() {
+        const select = document.getElementById('regleIndicePredefinie');
+        const regle = select.value;
+        if (!regle) return;
+
+        select.disabled = true;
+
+        await Promise.all(tirageActuel.map(async (p, i) => {
+          const champ = document.getElementById('indiceTexte-' + i);
+          if (!champ) return;
+          const valeurPrecedente = champ.value;
+          champ.value = '⏳ ...';
+          try {
+            champ.value = await genererTexteIndicePredefini(p, regle);
+          } catch (erreur) {
+            console.error('Impossible de générer un indice prédéfini', erreur);
+            champ.value = valeurPrecedente;
+          }
+        }));
+
+        select.disabled = false;
       }
 
       function initialiserModeMultijoueurJeu() {
@@ -1172,7 +1305,17 @@
         });
 
         if (!indicesEnvoyes) {
-          zoneActions.innerHTML = '<button onclick="envoyerIndices()">📨 Envoyer les indices</button>';
+          zoneActions.innerHTML = `
+            <div class="regle-indice-zone">
+              <select id="regleIndicePredefinie" onchange="appliquerRegleIndice()">
+                <option value="">-- Remplir avec un indice prédéfini --</option>
+                ${Object.entries(reglesIndicesPredefinies).map(([valeur, libelle]) =>
+                  `<option value="${valeur}">${libelle}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <button onclick="envoyerIndices()">📨 Envoyer les indices</button>
+          `;
         } else if (!choixEffectue) {
           zoneActions.innerHTML = '<span class="badge-multijoueur badge-attente">⏳ En attente du choix de l\'autre joueur...</span>';
         } else {
