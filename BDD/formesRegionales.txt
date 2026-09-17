@@ -1,0 +1,67 @@
+# Format : idNationalDuPokemonDeBase;slugPokeAPIDeLaForme;nomAAfficher
+# - idNational = le même numéro que dans pokemon.txt (celui du pokémon "normal")
+# - slugPokeAPI = le nom utilisé par PokeAPI pour cette forme (vérifiable sur pokeapi.co ou Poképédia)
+# - nomAAfficher = ce qui sera affiché sur le site
+# Un pokémon peut avoir plusieurs lignes (ex: Miaouss, Tauros) : une forme sera
+# choisie au hasard parmi elles s'il est tiré.
+# Liste non exhaustive, à compléter au besoin (voir la fiche Poképédia du pokémon).
+
+# --- Formes d'Alola ---
+19;rattata-alola;Rattata d'Alola
+20;raticate-alola;Rattatac d'Alola
+26;raichu-alola;Raichu d'Alola
+27;sandshrew-alola;Sabelette d'Alola
+28;sandslash-alola;Sablaireau d'Alola
+37;vulpix-alola;Goupix d'Alola
+38;ninetales-alola;Feunard d'Alola
+50;diglett-alola;Taupiqueur d'Alola
+51;dugtrio-alola;Triopikeur d'Alola
+52;meowth-alola;Miaouss d'Alola
+53;persian-alola;Persian d'Alola
+74;geodude-alola;Racaillou d'Alola
+75;graveler-alola;Gravalanch d'Alola
+76;golem-alola;Grolem d'Alola
+88;grimer-alola;Tadmorv d'Alola
+89;muk-alola;Grotadmorv d'Alola
+103;exeggutor-alola;Noadkoko d'Alola
+105;marowak-alola;Ossatueur d'Alola
+
+# --- Formes de Galar ---
+52;meowth-galar;Miaouss de Galar
+77;ponyta-galar;Ponyta de Galar
+78;rapidash-galar;Galopa de Galar
+79;slowpoke-galar;Ramoloss de Galar
+80;slowbro-galar;Flagadoss de Galar
+83;farfetchd-galar;Canarticho de Galar
+110;weezing-galar;Smogogo de Galar
+122;mr-mime-galar;M. Mime de Galar
+144;articuno-galar;Artikodin de Galar
+145;zapdos-galar;Électhor de Galar
+146;moltres-galar;Sulfura de Galar
+199;slowking-galar;Roigada de Galar
+222;corsola-galar;Corayon de Galar
+263;zigzagoon-galar;Zigzaton de Galar
+264;linoone-galar;Linéon de Galar
+554;darumaka-galar;Darumarond de Galar
+555;darmanitan-galar;Darumacho de Galar
+562;yamask-galar;Tutafeh de Galar
+618;stunfisk-galar;Limogeon de Galar
+
+# --- Formes de Hisui ---
+58;growlithe-hisui;Caninos de Hisui
+59;arcanine-hisui;Arcanin de Hisui
+100;voltorb-hisui;Voltorbe de Hisui
+101;electrode-hisui;Électrode de Hisui
+157;typhlosion-hisui;Typhlosion de Hisui
+211;qwilfish-hisui;Qwilfish de Hisui
+215;sneasel-hisui;Farfuret de Hisui
+503;samurott-hisui;Clamiral de Hisui
+549;lilligant-hisui;Chapignon de Hisui
+570;zorua-hisui;Zorua de Hisui
+571;zoroark-hisui;Zoroark de Hisui
+
+# --- Formes de Paldea ---
+128;paldean-tauros-combat-breed;Tauros de Paldea (Forme Combat)
+128;paldean-tauros-blaze-breed;Tauros de Paldea (Forme Feu)
+128;paldean-tauros-aqua-breed;Tauros de Paldea (Forme Eau)
+194;wooper-paldea;Axoloto de Paldea

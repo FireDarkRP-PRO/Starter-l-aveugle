@@ -29,8 +29,15 @@ a.button {
 a.button:hover {
     background-color: #cc0000;
 }
-h1, h2, hr{
+h1, h2, h3, h4, p, hr{
   color: white;
+}
+p{
+  font-size: 13px;
+}
+.starter{
+  border-top: 2px dashed white;
+  border-bottom: 2px dashed white;
 }
 </style>
 </head>
@@ -41,8 +48,14 @@ h1, h2, hr{
 <hr style="margin:20px 0;">
 <h2>Pokémon</h2>
 <!-- Boutons -->
-<a class="button" href="./salon.html" >Starter à l'aveugle</a>
-<a class="button" href="./guessType.html" >Trouve le type</a>
+<div class="starter">
+  <h4>Starter à l'aveugle</h4>
+  <p>(Se jeu est un jeu multijoueur, Le mode solo sert juste a avoir accès a un tirage random de pokémons)</p>
+  <a class="button" href="./starter.html" >Mode Solo</a>
+  <a class="button" href="./salon.html" >Mode Multijoueur</a>
+  <a class="button" href="./starterRules.html" >Règles</a>
+</div>
+<a class="button" href="./guessType.html" >Trouve le type</a><br>
 <a class="button" href="./guessShout.html" >Trouve avec le cri</a><br>
 <a class="button" href="./liensPokemon.html" >Liens externes</a>
 

@@ -764,6 +764,79 @@
         return allPokemons;
       }
 
+      // ---------- Formes régionales ----------
+      // Chargées depuis ../BDD/formesRegionales.txt, format par ligne :
+      //   idNationalDuPokemonDeBase;slugPokeAPIDeLaForme;nomAfficheDeLaForme
+      // Les formes ne sont PAS ajoutées à allPokemons : ça leur donnerait plus
+      // de chances d'être tirées que les autres pokémon. Un pokémon tiré qui a
+      // des formes régionales peut ensuite garder sa forme normale ou en recevoir
+      // une au hasard, chaque possibilité (normale incluse) ayant la même chance.
+      let formesRegionalesParEspece = null;
+
+      async function chargerFormesRegionales() {
+        if (formesRegionalesParEspece) return formesRegionalesParEspece;
+        formesRegionalesParEspece = {};
+
+        try {
+          const reponse = await fetch('../BDD/formesRegionales.txt');
+          const texte = await reponse.text();
+
+          texte
+            .split('\n')
+            .map(ligne => ligne.trim())
+            .filter(ligne => ligne.length > 0 && !ligne.startsWith('#'))
+            .forEach(ligne => {
+              const [idBaseTexte, slug, nomAffiche] = ligne.split(';').map(v => v.trim());
+              const idBase = parseInt(idBaseTexte, 10);
+              if (!formesRegionalesParEspece[idBase]) formesRegionalesParEspece[idBase] = [];
+              formesRegionalesParEspece[idBase].push({ slug, nomAffiche });
+            });
+        } catch (erreur) {
+          console.error('Impossible de charger ../BDD/formesRegionales.txt', erreur);
+        }
+
+        return formesRegionalesParEspece;
+      }
+
+      // Pour chaque pokémon tiré : s'il a au moins une forme régionale connue,
+      // on tire au hasard soit sa forme normale, soit une de ses formes régionales
+      // (chaque forme, normale incluse, a la même probabilité d'être choisie).
+      async function appliquerFormesRegionales(pokemons) {
+        const formes = await chargerFormesRegionales();
+
+        return Promise.all(pokemons.map(async p => {
+          const formesDispo = formes[p.id];
+          if (!formesDispo || formesDispo.length === 0) return p;
+
+          const options = [null, ...formesDispo]; // null = forme normale
+          const forme = options[Math.floor(Math.random() * options.length)];
+
+          if (!forme) return p;
+
+          try {
+            const dataForme = await fetch(`https://pokeapi.co/api/v2/pokemon/${forme.slug}`).then(r => r.json());
+            return {
+              id: dataForme.id,
+              nom: forme.nomAffiche,
+              idAffiche: String(p.id).padStart(3, '0'),
+              spriteUrl: dataForme.sprites && dataForme.sprites.front_default
+            };
+          } catch (erreur) {
+            console.error(`Impossible de charger la forme régionale "${forme.slug}"`, erreur);
+            return p;
+          }
+        }));
+      }
+
+      // Renvoie le numéro à afficher et le sprite à utiliser pour un pokémon,
+      // qu'il s'agisse d'un pokémon normal ou d'une forme régionale.
+      function infosAffichagePokemon(p) {
+        return {
+          idFormate: p.idAffiche || String(p.id).padStart(3, '0'),
+          spriteUrl: p.spriteUrl || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`
+        };
+      }
+
       // ---------- Filtre par génération ----------
 
       let listeGenerations = [];
@@ -861,8 +934,7 @@
             lancerAffichageFiche(p.id, p.nom);
           };
 
-          const idFormate = String(p.id).padStart(3, '0');
-          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          const { idFormate, spriteUrl } = infosAffichagePokemon(p);
 
           carte.innerHTML = `
             <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
@@ -888,7 +960,7 @@
             return;
           }
 
-          const pokemonsTires = choisirPokemonsAleatoires(listeFiltree, 3);
+          const pokemonsTires = await appliquerFormesRegionales(choisirPokemonsAleatoires(listeFiltree, 3));
           afficherPokemons(pokemonsTires);
         } catch (erreur) {
           container.innerHTML = '<p id="erreurMsg">Impossible de charger la liste des pokémon (../BDD/pokemon.txt ou ../BDD/genPokemon.txt).</p>';
@@ -947,7 +1019,7 @@
           return;
         }
 
-        tirageActuel = choisirPokemonsAleatoires(listeFiltree, 3);
+        tirageActuel = await appliquerFormesRegionales(choisirPokemonsAleatoires(listeFiltree, 3));
         tirageEffectue = true;
 
         if (connexionMultijoueur && connexionMultijoueur.open) {
@@ -1037,7 +1109,7 @@
         }
 
         return liste.map(p => {
-          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          const { spriteUrl } = infosAffichagePokemon(p);
           return `
             <div class="mini-pokemon">
               <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
@@ -1138,8 +1210,7 @@
 
         container.innerHTML = tirageActuel.map((p, i) => {
           if (revelesTableau[i]) {
-            const idFormate = String(p.id).padStart(3, '0');
-            const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+            const { idFormate, spriteUrl } = infosAffichagePokemon(p);
             const marque = (i === indexChoisi) ? '<p class="marque-choix">🎉 Ton choix !</p>' : '';
             return `
               <div class="pokemon-card">
@@ -1181,8 +1252,7 @@
         zone.style.display = 'block';
 
         const genererListe = (liste) => liste.map(p => {
-          const idFormate = String(p.id).padStart(3, '0');
-          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;
+          const { idFormate, spriteUrl } = infosAffichagePokemon(p);
           return `
             <div class="pokemon-card">
               <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
@@ -1219,7 +1289,8 @@
         try {
           const nomsAnglais = await Promise.all(equipe.map(async (p) => {
             try {
-              const espece = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${p.id}`).then(r => r.json());
+              const dataPokemon = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`).then(r => r.json());
+              const espece = await fetch(dataPokemon.species.url).then(r => r.json());
               const nomEn = espece.names.find(n => n.language.name === 'en');
               return nomEn ? nomEn.name : p.nom;
             } catch {
@@ -1542,10 +1613,8 @@
       }
 
       async function afficherFicheDetaillee(id, nomFr) {
-        const [dataPokemon, dataEspece] = await Promise.all([
-          fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json()),
-          fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r => r.json())
-        ]);
+        const dataPokemon = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json());
+        const dataEspece = await fetch(dataPokemon.species.url).then(r => r.json());
 
         // Génération
         const genRomain = dataEspece.generation.name.replace('generation-', '');
@@ -1687,7 +1756,7 @@
         const spriteUrl = (dataPokemon.sprites && dataPokemon.sprites.front_default)
           || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 
-        const idFormate = String(id).padStart(3, '0');
+        const idFormate = String(dataEspece.id).padStart(3, '0');
 
         const criHtml = criUrl
           ? `<audio controls src="${criUrl}" style="width:100%; margin-top:5px;"></audio>`
