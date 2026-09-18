@@ -999,10 +999,11 @@
         return monRoleJeu === tourDe;
       }
 
-      /* Le joueur qui doit deviner (ce n'est pas son tour de tirer) ne doit pas pouvoir
-      chercher le pokémon lui-même pendant qu'il attend/choisit :
-      ça reviendrait à tricher. On masque et on désactive la barre de recherche dans ce cas,
-      et on la réaffiche dès que c'est à nouveau son tour de tirer.*/
+      // Le joueur qui doit deviner (ce n'est pas son tour de tirer) ne doit
+      // pas pouvoir chercher le pokémon lui-même pendant qu'il attend/choisit :
+      // ça reviendrait à tricher. On masque et on désactive la barre de
+      // recherche dans ce cas, et on la réaffiche dès que c'est à nouveau son
+      // tour de tirer.
       function mettreAJourVisibiliteRecherche(masquer) {
         const zone = document.querySelector('.zone-recherche');
         if (!zone) return;
@@ -1318,9 +1319,10 @@
             zone.innerHTML = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
           } else {
             const marque = (i === indexChoisi) ? ' ⭐' : '';
+            const indiceAffiche = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
             zone.innerHTML = revelesTableau[i]
-              ? `<p class="indice-envoye">✅ Révélé${marque}</p>`
-              : `<button class="btn-reveler" onclick="reveler(${i})">👁️ Révéler${marque}</button>`;
+              ? `${indiceAffiche}<p class="indice-envoye">✅ Révélé${marque}</p>`
+              : `${indiceAffiche}<button class="btn-reveler" onclick="reveler(${i})">👁️ Révéler${marque}</button>`;
           }
 
           carte.appendChild(zone);
@@ -1384,6 +1386,7 @@
                 <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
                 <p>${p.nom}</p>
                 <span class="num">#${idFormate}</span>
+                <p class="indice-envoye">💬 ${indicesActuels[i] || "(pas d'indice)"}</p>
                 ${marque}
               </div>
             `;
@@ -1391,8 +1394,8 @@
 
           const classeChoisie = (choixEffectue && i === indexChoisi) ? ' boite-choisie' : '';
           const classeInactive = choixEffectue ? ' boite-inactive' : '';
-          const texteStatut = choixEffectue
-            ? (i === indexChoisi ? '🔒 Choix enregistré' : '')
+          const texteStatut = (choixEffectue && i === indexChoisi)
+            ? `💬 ${indicesActuels[i] || "(pas d'indice)"}<br>🔒 Choix enregistré`
             : `💬 ${indicesActuels[i] || "(pas d'indice)"}`;
           const clic = choixEffectue ? '' : `onclick="tenterChoix(${i})"`;
 
