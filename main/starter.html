@@ -3,6 +3,12 @@
   <head>
     <base target="_top">
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+      // Si unpkg est lent/indisponible, on charge PeerJS depuis un second CDN
+      if (typeof Peer === 'undefined') {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+      }
+    </script>
     <style>
       body {
         padding-bottom: 300px;
@@ -196,6 +202,43 @@
 
       .btn-reveler:hover {
         background-color: #2e7d22;
+      }
+
+      .btn-cri {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: none;
+        background-color: #2f6fd6;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .btn-cri:hover {
+        background-color: #2557ab;
+      }
+
+      .indice-cri {
+        display: inline-block;
+      }
+
+      .note-cri {
+        font-size: 11px;
+        margin: 4px 0 0 0;
+        color: #555;
+      }
+
+      .btn-reessayer {
+        margin-left: 8px;
+        padding: 3px 9px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3c9c2c;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
       }
 
       #zoneActionsMultijoueur {
@@ -886,6 +929,8 @@
         document.querySelectorAll('.gen-checkbox').forEach(cb => {
           cb.addEventListener('change', envoyerSelectionGenerations);
         });
+
+        if (generationsChoisies) appliquerSelectionGenerations(generationsChoisies);
       }
 
       function basculerToutesGenerations(cocher) {
@@ -893,15 +938,19 @@
         envoyerSelectionGenerations();
       }
 
+      let generationsChoisies = null; // mémorisées pour survivre à un rechargement de la page
+
       function envoyerSelectionGenerations() {
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
-            .map(cb => parseInt(cb.value, 10));
-          connexionMultijoueur.send({ type: 'selectionGen', generations: numerosSelectionnes });
+        const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
+          .map(cb => parseInt(cb.value, 10));
+        generationsChoisies = numerosSelectionnes;
+        if (modeMultijoueur) {
+          envoyerMessage({ type: 'selectionGen', generations: numerosSelectionnes });
         }
       }
 
       function appliquerSelectionGenerations(numerosSelectionnes) {
+        generationsChoisies = numerosSelectionnes;
         document.querySelectorAll('.gen-checkbox').forEach(cb => {
           cb.checked = numerosSelectionnes.includes(parseInt(cb.value, 10));
         });
@@ -994,6 +1043,10 @@
       let indexChoisi = null;
       let revelesTableau = [false, false, false];
       let equipes = { hote: [], joueur: [] };
+      let indicesCris = [null, null, null]; // URL du cri si l'indice est un cri (sinon null)
+      let indiceCriActif = false;           // mode "cri" sélectionné dans le menu (côté lanceur)
+      let partieTerminee = false;
+      let idPartie = '';
 
       function estMonTour() {
         return monRoleJeu === tourDe;
@@ -1032,6 +1085,8 @@
         choixEffectue = false;
         indexChoisi = null;
         revelesTableau = [false, false, false];
+        indicesCris = [null, null, null];
+        indiceCriActif = false;
         Object.keys(donneesPokemonIndiceCache).forEach(cle => delete donneesPokemonIndiceCache[cle]);
       }
 
@@ -1051,7 +1106,8 @@
         capture: 'Taux de capture',
         description: 'Description Pokédex',
         talents: 'Talents',
-        groupesOeuf: "Groupes d'Œuf"
+        groupesOeuf: "Groupes d'Œuf",
+        cri: '🔊 Cri du pokémon (remplace le texte)'
       };
 
       const typesEnFrancais = {
@@ -1134,6 +1190,15 @@
       async function appliquerRegleIndice() {
         const select = document.getElementById('regleIndicePredefinie');
         const regle = select.value;
+
+        // Le cri remplace la zone de texte par un lecteur audio
+        if (regle === 'cri') {
+          await activerModeCri(select);
+          return;
+        }
+
+        // Toute autre règle (ou aucune) : on revient aux zones de texte
+        if (indiceCriActif) desactiverModeCri();
         if (!regle) return;
 
         select.disabled = true;
@@ -1154,13 +1219,147 @@
         select.disabled = false;
       }
 
+      // ---------- Indice "Cri" ----------
+      // Le cri n'est pas copié dans le texte : on envoie son URL (fichier du dépôt
+      // PokeAPI/cries) et l'autre joueur le charge et le joue chez lui.
+
+      function urlCriValide(url) {
+        return typeof url === 'string' && url.startsWith('https://raw.githubusercontent.com/PokeAPI/');
+      }
+
+      async function recupererUrlCri(p) {
+        const { dataPokemon, dataEspece } = await recupererDonneesIndice(p);
+
+        let cries = dataPokemon.cries;
+        let url = cries && (cries.latest || cries.legacy);
+
+        // Certaines formes n'ont pas de cri propre : on prend celui de la forme de base
+        if (!url && dataEspece && dataEspece.varieties) {
+          const defaut = dataEspece.varieties.find(v => v.is_default);
+          if (defaut) {
+            const dataDefaut = await fetch(defaut.pokemon.url).then(r => r.json());
+            cries = dataDefaut.cries;
+            url = cries && (cries.latest || cries.legacy);
+          }
+        }
+
+        return urlCriValide(url) ? url : null;
+      }
+
+      async function activerModeCri(select) {
+        select.disabled = true;
+        indiceCriActif = true;
+        indicesCris = [null, null, null];
+        afficherCriDansZones(true);
+
+        await Promise.all(tirageActuel.map(async (p, i) => {
+          try {
+            indicesCris[i] = await recupererUrlCri(p);
+          } catch (erreur) {
+            console.error('Impossible de récupérer le cri', erreur);
+            indicesCris[i] = null;
+          }
+        }));
+
+        select.disabled = false;
+        afficherCriDansZones(false);
+      }
+
+      function desactiverModeCri() {
+        indiceCriActif = false;
+        indicesCris = [null, null, null];
+        afficherCriDansZones(false);
+      }
+
+      // Côté lanceur, avant l'envoi : masque la zone de texte et affiche le lecteur de cri
+      function afficherCriDansZones(chargement) {
+        [0, 1, 2].forEach(i => {
+          const champ = document.getElementById('indiceTexte-' + i);
+          const zoneCri = document.getElementById('indiceCri-' + i);
+          if (!champ || !zoneCri) return;
+
+          if (!indiceCriActif) {
+            champ.style.display = '';
+            zoneCri.style.display = 'none';
+            zoneCri.innerHTML = '';
+            return;
+          }
+
+          zoneCri.style.display = '';
+
+          if (chargement) {
+            champ.style.display = 'none';
+            zoneCri.innerHTML = '<p class="note-cri">⏳ Chargement du cri...</p>';
+          } else if (indicesCris[i]) {
+            champ.style.display = 'none';
+            zoneCri.innerHTML = `
+              <button type="button" class="btn-cri" data-cri="${i}" onclick="jouerCri(${i}, event)">🔊 Écouter le cri</button>
+              <p class="note-cri">Le cri sera envoyé à la place d'un texte</p>
+            `;
+          } else {
+            champ.style.display = '';
+            zoneCri.innerHTML = '<p class="note-cri">⚠️ Cri indisponible pour ce pokémon : écris un indice à la place</p>';
+          }
+        });
+      }
+
+      let audioCriEnCours = null;
+
+      function jouerCri(i, evenement) {
+        if (evenement) evenement.stopPropagation(); // ne pas déclencher le choix de la boîte noire
+
+        const url = indicesCris[i];
+        if (!url) return;
+
+        if (audioCriEnCours) {
+          try { audioCriEnCours.pause(); } catch (erreur) { /* ignoré */ }
+        }
+
+        const boutons = document.querySelectorAll(`[data-cri="${i}"]`);
+        const marquer = (texte) => boutons.forEach(b => { b.textContent = texte; });
+
+        const audio = new Audio(url);
+        audioCriEnCours = audio;
+        audio.addEventListener('error', () => marquer('⚠️ Cri indisponible — réessayer'));
+        audio.addEventListener('ended', () => marquer('🔊 Écouter le cri'));
+
+        marquer('🔊 Écouter le cri');
+        audio.play().catch(erreur => {
+          console.error('Lecture du cri impossible', erreur);
+          marquer('⚠️ Cri indisponible — réessayer');
+        });
+      }
+
+      function echapperHtml(texte) {
+        return String(texte == null ? '' : texte).replace(/[&<>"']/g, c => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+      }
+
+      // HTML d'un indice (texte ou cri) pour le pokémon i
+      function indiceHtml(i, texteSiVide) {
+        if (indicesCris[i]) {
+          return `<span class="indice-cri" onclick="event.stopPropagation()"><button type="button" class="btn-cri" data-cri="${i}" onclick="jouerCri(${i}, event)">🔊 Écouter le cri</button></span>`;
+        }
+        return `💬 ${echapperHtml(indicesActuels[i]) || texteSiVide}`;
+      }
+
       function initialiserModeMultijoueurJeu() {
         modeMultijoueur = true;
         monRoleJeu = sessionStorage.getItem('mp_role') === 'hote' ? 'hote' : 'joueur';
+        idPartie = sessionStorage.getItem('mp_partie') || '';
         tourDe = 'hote';
         reinitialiserRoundMultijoueur();
+
+        // Si la page a été rechargée en pleine partie, on reprend là où on en était
+        const restaure = restaurerEtat();
+
         afficherMiniEquipes();
-        rafraichirVueMultijoueur();
+        if (restaure && partieTerminee) {
+          afficherEquipesFinales();
+        } else {
+          rafraichirVueMultijoueur();
+        }
       }
 
       async function tirerPokemonsMultijoueur() {
@@ -1176,23 +1375,21 @@
         tirageActuel = await appliquerFormesRegionales(choisirPokemonsAleatoires(listeFiltree, 3));
         tirageEffectue = true;
 
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          connexionMultijoueur.send({ type: 'tirage', pokemons: tirageActuel });
-        }
+        envoyerMessage({ type: 'tirage', pokemons: tirageActuel });
 
         rafraichirVueMultijoueur();
       }
 
       function envoyerIndices() {
+        indicesCris = [0, 1, 2].map(i => (indiceCriActif && urlCriValide(indicesCris[i])) ? indicesCris[i] : null);
         indicesActuels = [0, 1, 2].map(i => {
+          if (indicesCris[i]) return ''; // indice = cri : pas de texte
           const champ = document.getElementById('indiceTexte-' + i);
           return champ ? champ.value.trim() : '';
         });
         indicesEnvoyes = true;
 
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          connexionMultijoueur.send({ type: 'indices', textes: indicesActuels });
-        }
+        envoyerMessage({ type: 'indices', textes: indicesActuels, cris: indicesCris });
 
         rafraichirVueActive();
       }
@@ -1201,17 +1398,13 @@
         if (revelesTableau[i]) return;
         revelesTableau[i] = true;
 
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          connexionMultijoueur.send({ type: 'reveal', index: i });
-        }
+        envoyerMessage({ type: 'reveal', index: i });
 
         rafraichirVueActive();
       }
 
       function terminerTour() {
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          connexionMultijoueur.send({ type: 'finTour' });
-        }
+        envoyerMessage({ type: 'finTour' });
         finDuTour();
       }
 
@@ -1228,6 +1421,8 @@
         } else {
           rafraichirVueMultijoueur();
         }
+
+        sauvegarderEtat();
       }
 
       function tenterChoix(i) {
@@ -1240,9 +1435,7 @@
         choixEffectue = true;
         equipes[monRoleJeu].push(tirageActuel[i]);
 
-        if (connexionMultijoueur && connexionMultijoueur.open) {
-          connexionMultijoueur.send({ type: 'choix', index: i, role: monRoleJeu });
-        }
+        envoyerMessage({ type: 'choix', index: i, role: monRoleJeu });
 
         rafraichirVueMultijoueur();
       }
@@ -1314,12 +1507,15 @@
           zone.onclick = (e) => e.stopPropagation();
 
           if (!indicesEnvoyes) {
-            zone.innerHTML = `<textarea class="indice-texte" id="indiceTexte-${i}" placeholder="Indice pour ce pokémon..."></textarea>`;
+            zone.innerHTML = `
+              <textarea class="indice-texte" id="indiceTexte-${i}" placeholder="Indice pour ce pokémon..."></textarea>
+              <div id="indiceCri-${i}" style="display:none;"></div>
+            `;
           } else if (!choixEffectue) {
-            zone.innerHTML = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
+            zone.innerHTML = `<p class="indice-envoye">${indiceHtml(i, '(vide)')}</p>`;
           } else {
             const marque = (i === indexChoisi) ? ' ⭐' : '';
-            const indiceAffiche = `<p class="indice-envoye">💬 ${indicesActuels[i] || '(vide)'}</p>`;
+            const indiceAffiche = `<p class="indice-envoye">${indiceHtml(i, '(vide)')}</p>`;
             zone.innerHTML = revelesTableau[i]
               ? `${indiceAffiche}<p class="indice-envoye">✅ Révélé${marque}</p>`
               : `${indiceAffiche}<button class="btn-reveler" onclick="reveler(${i})">👁️ Révéler${marque}</button>`;
@@ -1344,6 +1540,13 @@
           zoneActions.innerHTML = '<span class="badge-multijoueur badge-attente">⏳ En attente du choix de l\'autre joueur...</span>';
         } else {
           zoneActions.innerHTML = '<button onclick="terminerTour()">✅ Terminer mon tour</button>';
+        }
+
+        // Si le mode "cri" était actif avant ce rafraîchissement, on le réaffiche
+        if (!indicesEnvoyes && indiceCriActif) {
+          const select = document.getElementById('regleIndicePredefinie');
+          if (select) select.value = 'cri';
+          afficherCriDansZones(false);
         }
       }
 
@@ -1386,7 +1589,7 @@
                 <img src="${spriteUrl}" alt="${p.nom}" onerror="this.style.opacity=0.2">
                 <p>${p.nom}</p>
                 <span class="num">#${idFormate}</span>
-                <p class="indice-envoye">💬 ${indicesActuels[i] || "(pas d'indice)"}</p>
+                <p class="indice-envoye">${indiceHtml(i, "(pas d'indice)")}</p>
                 ${marque}
               </div>
             `;
@@ -1395,8 +1598,8 @@
           const classeChoisie = (choixEffectue && i === indexChoisi) ? ' boite-choisie' : '';
           const classeInactive = choixEffectue ? ' boite-inactive' : '';
           const texteStatut = (choixEffectue && i === indexChoisi)
-            ? `💬 ${indicesActuels[i] || "(pas d'indice)"}<br>🔒 Choix enregistré`
-            : `💬 ${indicesActuels[i] || "(pas d'indice)"}`;
+            ? `${indiceHtml(i, "(pas d'indice)")}<br>🔒 Choix enregistré`
+            : indiceHtml(i, "(pas d'indice)");
           const clic = choixEffectue ? '' : `onclick="tenterChoix(${i})"`;
 
           return `
@@ -1409,6 +1612,7 @@
       }
 
       function afficherEquipesFinales() {
+        partieTerminee = true;
         document.getElementById('statutTourZone').innerHTML =
           '<span class="badge-multijoueur badge-connecte">🏆 Équipes complètes !</span>';
         document.getElementById('tirageBtn').style.display = 'none';
@@ -1495,105 +1699,506 @@
         });
       }
 
-      // ---------- Connexion multijoueur (reprise depuis le salon) ----------
+      // ================= Connexion multijoueur robuste =================
+      // 1) Livraison fiable : chaque message de jeu reçoit un numéro (seq) et reste
+      //    dans une file d'envoi tant que l'autre joueur ne l'a pas confirmé (ack).
+      //    Après une coupure, tout ce qui manque est renvoyé ; à la réception les
+      //    doublons sont ignorés et l'ordre est respecté. Aucun message n'est perdu,
+      //    même envoyé pendant que la connexion était coupée.
+      // 2) Superviseur : toutes les 2 s, on vérifie que le serveur de signalisation et
+      //    la liaison avec l'autre joueur sont sains (ping/pong), et on les rétablit
+      //    automatiquement sinon (l'hôte reste joignable, le joueur se reconnecte).
+      // 3) Sauvegarde : l'état de la partie est gardé dans sessionStorage, donc un
+      //    rechargement de page reprend la partie au lieu de la perdre.
 
       const PREFIXE_SALON = 'starter-aveugle-';
+      const CLE_ETAT_PARTIE = 'mp_etat';
+      const INTERVALLE_SUPERVISION_MS = 2000;
+      const INTERVALLE_PING_MS = 4000;
+      const SILENCE_MAX_MS = 20000;
+      const DELAI_TENTATIVE_MS = 12000;
+
       let peerMultijoueur = null;
       let connexionMultijoueur = null;
+      let codeSalon = '';
+      let quitte = false;
+      let partenaireParti = false;
+      let dejaConnecte = false;
+      let erreurFatale = null;
+      let superviseurId = null;
 
-      function afficherBadgeMultijoueur(texte, classe) {
+      let seqSortant = 0;          // dernier numéro attribué à un message envoyé
+      let fileEnvoi = [];          // messages envoyés mais pas encore confirmés
+      let seqEntrant = 0;          // dernier message reçu ET traité (dans l'ordre)
+      let tamponEntrant = {};      // messages reçus en avance (trou dans la numérotation)
+
+      let derniereReceptionLe = Date.now();
+      let dernierPingLe = 0;
+      let dernierTickLe = Date.now();
+      let prochaineTentativeLe = 0;
+      let debutTentativeLe = 0;
+      let nbEchecs = 0;
+      let dernierBadge = '';
+
+      function connexionVivante() {
+        return !!(connexionMultijoueur && connexionMultijoueur.open);
+      }
+
+      // ---------- Badge d'état ----------
+
+      function afficherBadgeMultijoueur(texte, classe, avecBouton) {
+        const cle = texte + '|' + classe + '|' + (avecBouton ? '1' : '0');
+        if (cle === dernierBadge) return;
+        dernierBadge = cle;
+
         const badge = document.getElementById('badgeMultijoueur');
-        badge.innerHTML = `<span class="badge-multijoueur ${classe}">${texte}</span>`;
+        badge.innerHTML = `<span class="badge-multijoueur ${classe}">${texte}${
+          avecBouton ? '<button type="button" class="btn-reessayer" onclick="forcerReconnexion()">🔄 Réessayer</button>' : ''
+        }</span>`;
       }
 
-      function configurerConnexionMultijoueur() {
-        connexionMultijoueur.on('open', () => {
-          afficherBadgeMultijoueur('🟢 Connecté avec l\'autre joueur', 'badge-connecte');
-        });
+      function majBadge() {
+        if (erreurFatale) {
+          afficherBadgeMultijoueur(erreurFatale, 'badge-erreur', false);
+        } else if (connexionVivante()) {
+          afficherBadgeMultijoueur('🟢 Connecté avec l\'autre joueur', 'badge-connecte', false);
+        } else if (partenaireParti) {
+          afficherBadgeMultijoueur('🔴 L\'autre joueur a quitté la partie', 'badge-erreur', false);
+        } else if (!dejaConnecte) {
+          const texte = nbEchecs >= 3
+            ? '⏳ Connexion en cours... vérifie que l\'autre joueur est bien sur la page'
+            : '⏳ Connexion avec l\'autre joueur...';
+          afficherBadgeMultijoueur(texte, 'badge-attente', nbEchecs >= 3);
+        } else {
+          afficherBadgeMultijoueur('🟠 Connexion perdue — reconnexion automatique... (tes actions sont gardées et seront envoyées)', 'badge-attente', true);
+        }
+      }
 
-        connexionMultijoueur.on('data', (donnee) => {
-          if (!donnee || !donnee.type) return;
+      // ---------- Sauvegarde / restauration de la partie ----------
 
-          switch (donnee.type) {
-            case 'tirage':
-              if (modeMultijoueur) {
-                tirageActuel = donnee.pokemons;
-                tirageEffectue = true;
-                rafraichirVueMultijoueur();
-              } else {
-                afficherPokemons(donnee.pokemons);
-              }
-              break;
+      function construireEtat() {
+        return {
+          tourDe, tirageActuel, tirageEffectue, indicesEnvoyes, indicesActuels, indicesCris,
+          choixEffectue, indexChoisi, revelesTableau, equipes, partieTerminee, generationsChoisies
+        };
+      }
 
-            case 'selectionGen':
-              appliquerSelectionGenerations(donnee.generations);
-              break;
+      function appliquerEtat(e) {
+        tourDe = e.tourDe;
+        tirageActuel = e.tirageActuel || [];
+        tirageEffectue = !!e.tirageEffectue;
+        indicesEnvoyes = !!e.indicesEnvoyes;
+        indicesActuels = e.indicesActuels || ['', '', ''];
+        indicesCris = [0, 1, 2].map(i => (e.indicesCris && urlCriValide(e.indicesCris[i])) ? e.indicesCris[i] : null);
+        choixEffectue = !!e.choixEffectue;
+        indexChoisi = (e.indexChoisi === undefined) ? null : e.indexChoisi;
+        revelesTableau = e.revelesTableau || [false, false, false];
+        equipes = e.equipes || { hote: [], joueur: [] };
+        partieTerminee = !!e.partieTerminee;
+        generationsChoisies = e.generationsChoisies || null;
+        indiceCriActif = false;
+      }
 
-            case 'indices':
-              indicesActuels = donnee.textes;
-              indicesEnvoyes = true;
-              rafraichirVueMultijoueur();
-              break;
+      function sauvegarderEtat() {
+        if (!modeMultijoueur) return;
+        try {
+          sessionStorage.setItem(CLE_ETAT_PARTIE, JSON.stringify({
+            code: codeSalon,
+            partie: idPartie,
+            role: monRoleJeu,
+            etat: construireEtat(),
+            seqSortant,
+            seqEntrant,
+            fileEnvoi: fileEnvoi.map(({ seq, msg }) => ({ seq, msg }))
+          }));
+        } catch (erreur) {
+          // Stockage plein ou indisponible : la partie continue, sans sauvegarde
+        }
+      }
 
-            case 'choix':
-              indexChoisi = donnee.index;
-              choixEffectue = true;
-              equipes[donnee.role].push(tirageActuel[donnee.index]);
-              rafraichirVueMultijoueur();
-              break;
+      function restaurerEtat() {
+        try {
+          const brut = sessionStorage.getItem(CLE_ETAT_PARTIE);
+          if (!brut) return false;
 
-            case 'reveal':
-              revelesTableau[donnee.index] = true;
-              rafraichirVueMultijoueur();
-              break;
+          const sauvegarde = JSON.parse(brut);
+          if (sauvegarde.code !== codeSalon || sauvegarde.partie !== idPartie || sauvegarde.role !== monRoleJeu) {
+            sessionStorage.removeItem(CLE_ETAT_PARTIE); // sauvegarde d'une ancienne partie
+            return false;
+          }
 
-            case 'finTour':
-              finDuTour();
-              break;
+          appliquerEtat(sauvegarde.etat);
+          seqSortant = sauvegarde.seqSortant || 0;
+          seqEntrant = sauvegarde.seqEntrant || 0;
+          fileEnvoi = (sauvegarde.fileEnvoi || []).map(x => ({ seq: x.seq, msg: x.msg, envoyeLe: 0 }));
+          return true;
+        } catch (erreur) {
+          console.warn('Sauvegarde de partie illisible, on repart de zéro', erreur);
+          return false;
+        }
+      }
+
+      // ---------- Envoi fiable ----------
+
+      function envoyerBrut(objet) {
+        if (!connexionVivante()) return false;
+        try {
+          connexionMultijoueur.send(objet);
+          return true;
+        } catch (erreur) {
+          console.warn('Envoi impossible', erreur);
+          return false;
+        }
+      }
+
+      function envoyerMessage(msg) {
+        seqSortant++;
+        fileEnvoi.push({ seq: seqSortant, msg, envoyeLe: 0 });
+        sauvegarderEtat();
+        transmettreFile(false);
+      }
+
+      function transmettreFile(forcer) {
+        if (!connexionVivante()) return;
+        const maintenant = Date.now();
+
+        fileEnvoi.forEach(item => {
+          if (forcer || !item.envoyeLe || maintenant - item.envoyeLe > 5000) {
+            if (envoyerBrut({ t: 'm', seq: item.seq, msg: item.msg, ack: seqEntrant })) {
+              item.envoyeLe = maintenant;
+            }
           }
         });
+      }
 
-        connexionMultijoueur.on('close', () => {
-          afficherBadgeMultijoueur('🔴 Le partenaire s\'est déconnecté', 'badge-erreur');
+      function purgerFile(ack) {
+        if (typeof ack !== 'number') return;
+        fileEnvoi = fileEnvoi.filter(item => item.seq > ack);
+      }
+
+      // ---------- Réception ----------
+
+      function recevoirBrut(donnee) {
+        if (!donnee || typeof donnee !== 'object') return;
+        purgerFile(donnee.ack);
+
+        switch (donnee.t) {
+          case 'hello': {
+            if (donnee.partie && idPartie && donnee.partie !== idPartie) {
+              console.warn('Autre partie, connexion ignorée');
+              fermerConnexionActuelle();
+              return;
+            }
+            partenaireParti = false;
+
+            // L'autre joueur a perdu son état (plus de sauvegarde) : on lui envoie un instantané
+            const plusPetiteSeqDispo = fileEnvoi.length ? fileEnvoi[0].seq : seqSortant + 1;
+            if (typeof donnee.ack === 'number' && donnee.ack < plusPetiteSeqDispo - 1) {
+              envoyerBrut({ t: 'snap', etat: construireEtat(), seqSortant, seqEntrant });
+            }
+
+            transmettreFile(true); // renvoie tout ce que l'autre n'a pas confirmé
+            majBadge();
+            break;
+          }
+
+          case 'ping':
+            envoyerBrut({ t: 'pong', ack: seqEntrant });
+            break;
+
+          case 'snap':
+            appliquerInstantane(donnee);
+            break;
+
+          case 'bye':
+            partenaireParti = true;
+            majBadge();
+            break;
+
+          case 'm':
+            partenaireParti = false;
+            traiterEntrant(donnee.seq, donnee.msg);
+            break;
+
+          // 'pong' et 'ack' : rien à faire de plus que purgerFile ci-dessus
+        }
+      }
+
+      function traiterEntrant(seq, msg) {
+        if (typeof seq !== 'number') return;
+
+        if (seq > seqEntrant) {
+          tamponEntrant[seq] = msg;
+
+          while (tamponEntrant[seqEntrant + 1] !== undefined) {
+            const suivant = tamponEntrant[seqEntrant + 1];
+            delete tamponEntrant[seqEntrant + 1];
+            seqEntrant++;
+            try {
+              traiterMessageJeu(suivant);
+            } catch (erreur) {
+              console.error('Erreur en traitant un message', suivant, erreur);
+            }
+          }
+
+          sauvegarderEtat();
+        }
+
+        // On confirme toujours (même un doublon) pour que l'autre vide sa file
+        envoyerBrut({ t: 'ack', ack: seqEntrant });
+      }
+
+      function appliquerInstantane(donnee) {
+        if (!donnee.etat) return;
+        appliquerEtat(donnee.etat);
+
+        seqEntrant = donnee.seqSortant || 0;
+        tamponEntrant = {};
+        if ((donnee.seqEntrant || 0) > seqSortant) seqSortant = donnee.seqEntrant;
+        purgerFile(donnee.seqEntrant || 0);
+
+        if (generationsChoisies) appliquerSelectionGenerations(generationsChoisies);
+        afficherMiniEquipes();
+        if (partieTerminee) {
+          afficherEquipesFinales();
+        } else {
+          rafraichirVueMultijoueur();
+        }
+        sauvegarderEtat();
+        envoyerBrut({ t: 'ack', ack: seqEntrant });
+      }
+
+      // Messages de jeu (une fois reçus dans l'ordre, sans doublon)
+      function traiterMessageJeu(donnee) {
+        if (!donnee || !donnee.type) return;
+
+        switch (donnee.type) {
+          case 'tirage':
+            tirageActuel = donnee.pokemons;
+            tirageEffectue = true;
+            rafraichirVueMultijoueur();
+            break;
+
+          case 'selectionGen':
+            appliquerSelectionGenerations(donnee.generations);
+            break;
+
+          case 'indices':
+            indicesActuels = donnee.textes;
+            indicesCris = [0, 1, 2].map(i => (donnee.cris && urlCriValide(donnee.cris[i])) ? donnee.cris[i] : null);
+            indicesEnvoyes = true;
+            rafraichirVueMultijoueur();
+            break;
+
+          case 'choix':
+            indexChoisi = donnee.index;
+            choixEffectue = true;
+            equipes[donnee.role].push(tirageActuel[donnee.index]);
+            rafraichirVueMultijoueur();
+            break;
+
+          case 'reveal':
+            revelesTableau[donnee.index] = true;
+            rafraichirVueMultijoueur();
+            break;
+
+          case 'finTour':
+            finDuTour();
+            break;
+        }
+      }
+
+      // ---------- Connexion de données (WebRTC) ----------
+
+      function fermerConnexionActuelle() {
+        const ancienne = connexionMultijoueur;
+        connexionMultijoueur = null;
+        if (ancienne) {
+          try { ancienne.close(); } catch (erreur) { /* ignoré */ }
+        }
+        majBadge();
+      }
+
+      function attacherConnexion(conn) {
+        // Une nouvelle connexion remplace l'ancienne (ex. l'autre joueur a rechargé sa page)
+        if (connexionMultijoueur && connexionMultijoueur !== conn) {
+          const ancienne = connexionMultijoueur;
+          connexionMultijoueur = conn;
+          try { ancienne.close(); } catch (erreur) { /* ignoré */ }
+        } else {
+          connexionMultijoueur = conn;
+        }
+
+        const quandOuverte = () => {
+          if (connexionMultijoueur !== conn) return;
+          dejaConnecte = true;
+          nbEchecs = 0;
+          derniereReceptionLe = Date.now();
+          envoyerBrut({ t: 'hello', ack: seqEntrant, partie: idPartie });
+          majBadge();
+        };
+
+        conn.on('open', quandOuverte);
+        if (conn.open) quandOuverte();
+
+        conn.on('data', (donnee) => {
+          if (connexionMultijoueur !== conn) return;
+          derniereReceptionLe = Date.now();
+          recevoirBrut(donnee);
+        });
+
+        conn.on('close', () => {
+          if (connexionMultijoueur !== conn) return;
+          connexionMultijoueur = null;
+          majBadge();
+        });
+
+        conn.on('error', (erreur) => {
+          console.warn('Erreur de connexion', erreur);
+          if (connexionMultijoueur !== conn) return;
+          try { conn.close(); } catch (e) { /* ignoré */ }
+          connexionMultijoueur = null;
+          majBadge();
         });
       }
 
-      function creerPeerHote(code, tentative) {
-        peerMultijoueur = new Peer(PREFIXE_SALON + code);
+      // ---------- Peer (serveur de signalisation) ----------
 
-        peerMultijoueur.on('open', () => {
-          peerMultijoueur.on('connection', (conn) => {
-            connexionMultijoueur = conn;
-            configurerConnexionMultijoueur();
-          });
+      function creerPeer() {
+        if (connexionMultijoueur && !connexionMultijoueur.open) connexionMultijoueur = null;
+
+        const peer = (monRoleJeu === 'hote') ? new Peer(PREFIXE_SALON + codeSalon) : new Peer();
+        peerMultijoueur = peer;
+
+        peer.on('open', () => {
+          if (peer !== peerMultijoueur) return;
+          nbEchecs = 0;
+          prochaineTentativeLe = 0;
+          setTimeout(surveillerConnexion, 0);
         });
 
-        peerMultijoueur.on('error', (erreur) => {
-          if (erreur.type === 'unavailable-id' && tentative < 6) {
-            setTimeout(() => creerPeerHote(code, tentative + 1), 500);
+        peer.on('connection', (conn) => {
+          if (peer !== peerMultijoueur) return;
+          if (monRoleJeu !== 'hote') { try { conn.close(); } catch (e) { /* ignoré */ } return; }
+          attacherConnexion(conn);
+        });
+
+        peer.on('disconnected', () => {
+          if (peer !== peerMultijoueur) return;
+          prochaineTentativeLe = Date.now() + 500;
+        });
+
+        peer.on('close', () => {
+          if (peer === peerMultijoueur) peerMultijoueur = null;
+        });
+
+        peer.on('error', (erreur) => {
+          if (peer !== peerMultijoueur) return;
+          console.warn('PeerJS :', erreur.type, erreur);
+          nbEchecs++;
+
+          if (erreur.type === 'browser-incompatible') {
+            erreurFatale = '⚠️ Ton navigateur ne gère pas le mode multijoueur';
+          } else if (erreur.type === 'unavailable-id') {
+            // L'ancien identifiant de l'hôte n'est pas encore libéré côté serveur : on réessaie
+            prochaineTentativeLe = Date.now() + 3000;
           } else {
-            console.error(erreur);
-            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+            if (erreur.type === 'peer-unavailable' && connexionMultijoueur && !connexionMultijoueur.open) {
+              try { connexionMultijoueur.close(); } catch (e) { /* ignoré */ }
+              connexionMultijoueur = null;
+            }
+            prochaineTentativeLe = Date.now() + Math.min(1000 * nbEchecs, 6000);
           }
+          majBadge();
         });
       }
 
-      function creerPeerJoueur(code, tentative) {
-        peerMultijoueur = new Peer();
+      function assurerPeer(maintenant) {
+        if (maintenant < prochaineTentativeLe) return;
 
-        peerMultijoueur.on('open', () => {
-          connexionMultijoueur = peerMultijoueur.connect(PREFIXE_SALON + code);
-          configurerConnexionMultijoueur();
-        });
+        if (!peerMultijoueur || peerMultijoueur.destroyed) {
+          creerPeer();
+          prochaineTentativeLe = maintenant + 800;
+          return;
+        }
 
-        peerMultijoueur.on('error', (erreur) => {
-          if (erreur.type === 'peer-unavailable' && tentative < 6) {
-            setTimeout(() => creerPeerJoueur(code, tentative + 1), 500);
+        if (peerMultijoueur.disconnected) {
+          try { peerMultijoueur.reconnect(); } catch (erreur) { /* ignoré */ }
+          prochaineTentativeLe = maintenant + 2500;
+        }
+      }
+
+      function assurerConnexionVersHote(maintenant) {
+        if (maintenant < prochaineTentativeLe) return;
+
+        const peer = peerMultijoueur;
+        if (!peer || !peer.open) return; // assurerPeer s'en occupe
+
+        if (connexionMultijoueur && !connexionMultijoueur.open) {
+          if (maintenant - debutTentativeLe < DELAI_TENTATIVE_MS) return; // tentative encore en cours
+          try { connexionMultijoueur.close(); } catch (erreur) { /* ignoré */ }
+          connexionMultijoueur = null;
+          nbEchecs++;
+          prochaineTentativeLe = maintenant + Math.min(1000 * nbEchecs, 6000);
+          return;
+        }
+
+        debutTentativeLe = maintenant;
+        const conn = peer.connect(PREFIXE_SALON + codeSalon, { reliable: true, serialization: 'json' });
+        attacherConnexion(conn);
+      }
+
+      // ---------- Superviseur ----------
+
+      function surveillerConnexion() {
+        if (!modeMultijoueur || quitte || erreurFatale) return;
+
+        const maintenant = Date.now();
+
+        // Onglet endormi / timers ralentis : on repart d'une base saine plutôt que de
+        // conclure à tort que la connexion est morte
+        if (maintenant - dernierTickLe > 8000) {
+          derniereReceptionLe = maintenant;
+          dernierPingLe = 0;
+        }
+        dernierTickLe = maintenant;
+
+        assurerPeer(maintenant);
+
+        if (connexionVivante()) {
+          if (maintenant - derniereReceptionLe > SILENCE_MAX_MS) {
+            console.warn('Plus aucune nouvelle de l\'autre joueur : on rétablit la connexion');
+            fermerConnexionActuelle();
           } else {
-            console.error(erreur);
-            afficherBadgeMultijoueur('⚠️ Connexion multijoueur impossible', 'badge-erreur');
+            if (maintenant - dernierPingLe > INTERVALLE_PING_MS) {
+              dernierPingLe = maintenant;
+              envoyerBrut({ t: 'ping', ack: seqEntrant });
+            }
+            transmettreFile(false);
           }
-        });
+        } else if (monRoleJeu === 'joueur') {
+          assurerConnexionVersHote(maintenant);
+        }
+
+        majBadge();
+      }
+
+      function forcerReconnexion() {
+        nbEchecs = 0;
+        prochaineTentativeLe = 0;
+        if (connexionMultijoueur && !connexionMultijoueur.open) fermerConnexionActuelle();
+        if (peerMultijoueur && peerMultijoueur.disconnected && !peerMultijoueur.destroyed) {
+          try { peerMultijoueur.reconnect(); } catch (erreur) { /* ignoré */ }
+        }
+        surveillerConnexion();
+      }
+
+      function reveilOnglet() {
+        // Retour sur l'onglet : on teste tout de suite la connexion (pong attendu en quelques ms)
+        derniereReceptionLe = Date.now() - (SILENCE_MAX_MS - 8000);
+        dernierPingLe = 0;
+        dernierTickLe = Date.now();
+        surveillerConnexion();
       }
 
       function initMultijoueurDepuisSession() {
@@ -1601,30 +2206,41 @@
         const code = sessionStorage.getItem('mp_code');
         if (!role || !code) return;
 
-        afficherBadgeMultijoueur('⏳ Connexion avec l\'autre joueur...', 'badge-attente');
+        codeSalon = code;
+        afficherBadgeMultijoueur('⏳ Connexion avec l\'autre joueur...', 'badge-attente', false);
         initialiserModeMultijoueurJeu();
 
-        if (role === 'hote') {
-          creerPeerHote(code, 0);
-        } else {
-          creerPeerJoueur(code, 0);
-        }
+        creerPeer();
+        superviseurId = setInterval(surveillerConnexion, INTERVALLE_SUPERVISION_MS);
+
+        window.addEventListener('online', forcerReconnexion);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reveilOnglet(); });
+        window.addEventListener('pagehide', sauvegarderEtat);
       }
 
       function couperEtRetourner(evenement) {
         evenement.preventDefault();
 
-        if (connexionMultijoueur) {
-          try { connexionMultijoueur.close(); } catch (erreur) { /* ignoré */ }
-        }
-        if (peerMultijoueur) {
-          try { peerMultijoueur.destroy(); } catch (erreur) { /* ignoré */ }
-        }
+        quitte = true;
+        clearInterval(superviseurId);
+        envoyerBrut({ t: 'bye' });
 
-        sessionStorage.removeItem('mp_role');
-        sessionStorage.removeItem('mp_code');
+        // Petit délai pour laisser partir le message "bye" avant de couper
+        setTimeout(() => {
+          if (connexionMultijoueur) {
+            try { connexionMultijoueur.close(); } catch (erreur) { /* ignoré */ }
+          }
+          if (peerMultijoueur) {
+            try { peerMultijoueur.destroy(); } catch (erreur) { /* ignoré */ }
+          }
 
-        window.location.href = './index.html';
+          sessionStorage.removeItem('mp_role');
+          sessionStorage.removeItem('mp_code');
+          sessionStorage.removeItem('mp_partie');
+          sessionStorage.removeItem(CLE_ETAT_PARTIE);
+
+          window.location.href = './index.html';
+        }, 150);
       }
 
       // ---------- Recherche détaillée d'un pokémon (via PokeAPI) ----------
@@ -1972,7 +2588,9 @@
       document.addEventListener('DOMContentLoaded', () => {
         initMultijoueurDepuisSession();
 
-        chargerGenerations().then(afficherFiltresGenerations);
+        chargerGenerations().then(generations => {
+          if (!partieTerminee) afficherFiltresGenerations(generations);
+        });
 
         const champRecherche = document.getElementById('rechercheInput');
         if (champRecherche) {

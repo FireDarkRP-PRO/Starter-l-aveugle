@@ -5,6 +5,12 @@
     <base target="_top">
     <title>Salon multijoueur</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+      // Si unpkg est lent/indisponible, on charge PeerJS depuis un second CDN
+      if (typeof Peer === 'undefined') {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+      }
+    </script>
     <style>
       body {
         padding-bottom: 300px;
@@ -311,6 +317,10 @@
         });
 
         peer.on('connection', (conn) => {
+          // Si le joueur 2 revient (nouvel essai, page rechargée), la nouvelle connexion remplace l'ancienne
+          if (connexionJoueur && connexionJoueur !== conn) {
+            try { connexionJoueur.close(); } catch (e) { /* ignoré */ }
+          }
           connexionJoueur = conn;
 
           conn.on('open', () => {
@@ -323,10 +333,13 @@
           });
 
           conn.on('data', (donnee) => {
-            console.log('Message reçu du joueur 2 :', donnee);
+            if (donnee && donnee.type === 'lancerOk' && typeof lancementConfirme === 'function') {
+              lancementConfirme();
+            }
           });
 
           conn.on('close', () => {
+            if (connexionJoueur !== conn) return; // ancienne connexion remplacée : on ignore
             connexionJoueur = null;
             const statut = document.getElementById('statutSalon');
             if (statut) {
@@ -338,8 +351,20 @@
           });
         });
 
+        // Si le lien avec le serveur de signalisation tombe pendant l'attente, on le rétablit
+        // (sinon le code ne serait plus joignable alors que la page est toujours ouverte)
+        peer.on('disconnected', () => {
+          if (peer.destroyed) return;
+          setTimeout(() => {
+            try { peer.reconnect(); } catch (e) { /* ignoré */ }
+          }, 1000);
+        });
+
         peer.on('error', (erreur) => {
           console.error(erreur);
+          if (erreur.type === 'network' || erreur.type === 'server-error' || erreur.type === 'socket-error' || erreur.type === 'socket-closed') {
+            return; // erreur passagère : 'disconnected' s'occupe de la reconnexion
+          }
           if (erreur.type === 'unavailable-id') {
             // Code déjà pris par un autre salon en cours : on retente avec un nouveau code
             creerSalon();
@@ -392,13 +417,51 @@
         carte.appendChild(bouton);
       }
 
+      let lancementEnCours = false;
+      let lancementConfirme = null;
+
       function lancerPartie(code) {
-        if (connexionJoueur && connexionJoueur.open) {
-          connexionJoueur.send({ type: 'lancerPartie' });
-        }
+        if (lancementEnCours) return;
+        if (!connexionJoueur || !connexionJoueur.open) return;
+        lancementEnCours = true;
+
+        const idPartie = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         sessionStorage.setItem('mp_role', 'hote');
         sessionStorage.setItem('mp_code', code);
-        window.location.href = './starter.html';
+        sessionStorage.setItem('mp_partie', idPartie);
+
+        const bouton = document.getElementById('lancerBtn');
+        if (bouton) {
+          bouton.disabled = true;
+          bouton.textContent = '⏳ Lancement...';
+        }
+
+        let essais = 0;
+        let minuteur = null;
+
+        const aller = () => {
+          clearInterval(minuteur);
+          window.location.href = './starter.html';
+        };
+        lancementConfirme = aller;
+
+        // On renvoie l'ordre jusqu'à confirmation du joueur 2 : changer de page trop vite
+        // pouvait faire perdre le message, et le joueur 2 restait bloqué dans le salon.
+        const envoyer = () => {
+          if (connexionJoueur && connexionJoueur.open) {
+            connexionJoueur.send({ type: 'lancerPartie', idPartie });
+          }
+        };
+
+        envoyer();
+        minuteur = setInterval(() => {
+          essais++;
+          if (essais >= 6) {
+            aller(); // pas de confirmation (ancienne version de la page ?) : on y va quand même
+          } else {
+            envoyer();
+          }
+        }, 500);
       }
 
       // ---------- Mode "Rejoindre un salon" (joueur 2) ----------
@@ -434,22 +497,43 @@
 
         peer = new Peer();
 
+        let lancementRecu = false;
+
         peer.on('open', () => {
-          connexionHote = peer.connect(PREFIXE_SALON + code);
+          connexionHote = peer.connect(PREFIXE_SALON + code, { reliable: true, serialization: 'json' });
+
+          // Si la connexion n'aboutit pas, on le dit au lieu de rester bloqué sur "Connexion en cours..."
+          const minuteurConnexion = setTimeout(() => {
+            if (connexionHote && !connexionHote.open) {
+              afficherStatutRejoindre('Impossible de joindre ce salon (délai dépassé). Réessaie.', 'statut-erreur');
+              document.getElementById('rejoindreBtn').disabled = false;
+              try { connexionHote.close(); } catch (e) { /* ignoré */ }
+            }
+          }, 15000);
 
           connexionHote.on('open', () => {
+            clearTimeout(minuteurConnexion);
             afficherStatutRejoindre('✅ Connecté au salon ' + code + ' ! En attente que l\'hôte lance la partie...', 'statut-connecte');
           });
 
           connexionHote.on('data', (donnee) => {
             if (donnee && donnee.type === 'lancerPartie') {
+              if (lancementRecu) return;
+              lancementRecu = true;
+
               sessionStorage.setItem('mp_role', 'joueur');
               sessionStorage.setItem('mp_code', code);
-              window.location.href = './starter.html';
+              sessionStorage.setItem('mp_partie', donnee.idPartie || '');
+
+              // On confirme à l'hôte, puis on change de page
+              try { connexionHote.send({ type: 'lancerOk' }); } catch (e) { /* ignoré */ }
+              afficherStatutRejoindre('🚀 La partie démarre...', 'statut-connecte');
+              setTimeout(() => { window.location.href = './starter.html'; }, 300);
             }
           });
 
           connexionHote.on('close', () => {
+            if (lancementRecu) return; // l'hôte change simplement de page
             afficherStatutRejoindre('La connexion avec l\'hôte a été coupée.', 'statut-erreur');
             document.getElementById('rejoindreBtn').disabled = false;
           });
