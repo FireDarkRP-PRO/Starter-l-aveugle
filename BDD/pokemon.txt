@@ -636,7 +636,7 @@
 0636 Pyronille
 0637 Pyrax
 0638 Cobaltium
-0639 Terakkium
+0639 Terrakium
 0640 Viridium
 0641 Boréas
 0642 Fulguris
