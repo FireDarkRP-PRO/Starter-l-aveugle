@@ -770,6 +770,13 @@
             <button type="button" onclick="basculerToutesGenerations(false)">Tout décocher</button>
           </div>
 
+          <div id="optionsTirage" class="filtres-gen">
+            <label class="gen-case">
+              <input type="checkbox" id="formesRegionalesCheckbox" checked>
+              Formes régionales
+            </label>
+          </div>
+
           <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
           <div id="pokemonContainer"></div>
@@ -857,7 +864,24 @@
       // Pour chaque pokémon tiré : s'il a au moins une forme régionale connue,
       // on tire au hasard soit sa forme normale, soit une de ses formes régionales
       // (chaque forme, normale incluse, a la même probabilité d'être choisie).
+      let formesRegionalesActives = true; // case "Formes régionales" (synchronisée en multijoueur)
+
+      function appliquerOptionFormes(actif) {
+        formesRegionalesActives = actif;
+        const caseFormes = document.getElementById('formesRegionalesCheckbox');
+        if (caseFormes) caseFormes.checked = actif;
+      }
+
+      function changerOptionFormes() {
+        formesRegionalesActives = document.getElementById('formesRegionalesCheckbox').checked;
+        if (modeMultijoueur) {
+          envoyerMessage({ type: 'optionFormes', actif: formesRegionalesActives });
+        }
+      }
+
       async function appliquerFormesRegionales(pokemons) {
+        if (!formesRegionalesActives) return pokemons;
+
         const formes = await chargerFormesRegionales();
 
         return Promise.all(pokemons.map(async p => {
@@ -1619,6 +1643,7 @@
         document.getElementById('zoneActionsMultijoueur').innerHTML = '';
         document.getElementById('pokemonContainer').innerHTML = '';
         document.getElementById('filtresGenerations').innerHTML = '';
+        document.getElementById('optionsTirage').style.display = 'none';
         document.getElementById('equipeGaucheZone').classList.remove('actif');
         document.getElementById('equipeDroiteZone').classList.remove('actif');
 
@@ -1779,7 +1804,8 @@
       function construireEtat() {
         return {
           tourDe, tirageActuel, tirageEffectue, indicesEnvoyes, indicesActuels, indicesCris,
-          choixEffectue, indexChoisi, revelesTableau, equipes, partieTerminee, generationsChoisies
+          choixEffectue, indexChoisi, revelesTableau, equipes, partieTerminee, generationsChoisies,
+          formesRegionalesActives
         };
       }
 
@@ -1796,6 +1822,7 @@
         equipes = e.equipes || { hote: [], joueur: [] };
         partieTerminee = !!e.partieTerminee;
         generationsChoisies = e.generationsChoisies || null;
+        appliquerOptionFormes(e.formesRegionalesActives !== false);
         indiceCriActif = false;
       }
 
@@ -1981,6 +2008,10 @@
 
           case 'selectionGen':
             appliquerSelectionGenerations(donnee.generations);
+            break;
+
+          case 'optionFormes':
+            appliquerOptionFormes(!!donnee.actif);
             break;
 
           case 'indices':
@@ -2591,6 +2622,8 @@
         chargerGenerations().then(generations => {
           if (!partieTerminee) afficherFiltresGenerations(generations);
         });
+
+        document.getElementById('formesRegionalesCheckbox').addEventListener('change', changerOptionFormes);
 
         const champRecherche = document.getElementById('rechercheInput');
         if (champRecherche) {
