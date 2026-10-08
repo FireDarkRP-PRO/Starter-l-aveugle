@@ -776,6 +776,10 @@
               Formes régionales
             </label>
             <label class="gen-case">
+              <input type="checkbox" id="normauxCheckbox" checked>
+              Normaux
+            </label>
+            <label class="gen-case">
               <input type="checkbox" id="legendairesCheckbox" checked>
               Légendaires
             </label>
@@ -891,6 +895,7 @@
       // Ces pokémon sont aussi présents dans pokemon.txt : décocher une case les retire
       // simplement de la liste dans laquelle on tire (ils ne sont donc jamais tirés,
       // et leurs formes régionales non plus).
+      let inclureNormaux = true;
       let inclureLegendaires = true;
       let inclureFabuleux = true;
       const idsCategories = {}; // nom de fichier -> Set d'identifiants
@@ -922,9 +927,12 @@
         return ids;
       }
 
-      function appliquerOptionCategories(legendaires, fabuleux) {
+      function appliquerOptionCategories(legendaires, fabuleux, normaux) {
         inclureLegendaires = legendaires;
         inclureFabuleux = fabuleux;
+        inclureNormaux = normaux;
+        const caseN = document.getElementById('normauxCheckbox');
+        if (caseN) caseN.checked = normaux;
         const caseL = document.getElementById('legendairesCheckbox');
         const caseF = document.getElementById('fabuleuxCheckbox');
         if (caseL) caseL.checked = legendaires;
@@ -932,10 +940,11 @@
       }
 
       function changerOptionCategories() {
+        inclureNormaux = document.getElementById('normauxCheckbox').checked;
         inclureLegendaires = document.getElementById('legendairesCheckbox').checked;
         inclureFabuleux = document.getElementById('fabuleuxCheckbox').checked;
         if (modeMultijoueur) {
-          envoyerMessage({ type: 'optionCategories', legendaires: inclureLegendaires, fabuleux: inclureFabuleux });
+          envoyerMessage({ type: 'optionCategories', legendaires: inclureLegendaires, fabuleux: inclureFabuleux, normaux: inclureNormaux });
         }
       }
 
@@ -1053,14 +1062,36 @@
 
         const plagesSelectionnees = generations.filter(g => numerosSelectionnes.includes(g.numero));
 
-        const exclus = new Set();
-        if (!inclureLegendaires) (await chargerIdsCategorie('legendaires.txt')).forEach(id => exclus.add(id));
-        if (!inclureFabuleux) (await chargerIdsCategorie('Pokémon_Fabuleux.txt')).forEach(id => exclus.add(id));
+        const toutesCategories = inclureNormaux && inclureLegendaires && inclureFabuleux;
+        if (!inclureNormaux && !inclureLegendaires && !inclureFabuleux) {
+          return []; // aucune catégorie sélectionnée : rien à tirer
+        }
 
-        return liste.filter(p =>
-          !exclus.has(p.id) &&
-          plagesSelectionnees.some(g => p.id >= g.min && p.id <= g.max)
-        );
+        // Pas besoin de lire les fichiers si les trois catégories sont cochées
+        const idsLegendaires = toutesCategories ? new Set() : await chargerIdsCategorie('legendaires.txt');
+        const idsFabuleux = toutesCategories ? new Set() : await chargerIdsCategorie('Pokémon_Fabuleux.txt');
+
+        return liste.filter(p => {
+          if (!plagesSelectionnees.some(g => p.id >= g.min && p.id <= g.max)) return false;
+          if (toutesCategories) return true;
+
+          const estLegendaire = idsLegendaires.has(p.id);
+          const estFabuleux = idsFabuleux.has(p.id);
+
+          if (!estLegendaire && !estFabuleux) return inclureNormaux;
+          return (estLegendaire && inclureLegendaires) || (estFabuleux && inclureFabuleux);
+        });
+      }
+
+      // Message affiché quand le tirage n'a aucun pokémon à piocher
+      function messageAucunPokemon() {
+        if (!inclureNormaux && !inclureLegendaires && !inclureFabuleux) {
+          return 'Sélectionne au moins une catégorie (normaux, légendaires ou fabuleux) avant de tirer.';
+        }
+        if (document.querySelectorAll('.gen-checkbox:checked').length === 0) {
+          return 'Sélectionne au moins une génération avant de tirer.';
+        }
+        return 'Aucun pokémon ne correspond à tes filtres (générations, catégories).';
       }
 
       function choisirPokemonsAleatoires(liste, quantite) {
@@ -1107,7 +1138,7 @@
           const listeFiltree = await obtenirPokemonsFiltresParGeneration();
 
           if (listeFiltree.length === 0) {
-            container.innerHTML = '<p id="erreurMsg">Aucun pokémon ne correspond à tes filtres (générations, légendaires, fabuleux).</p>';
+            container.innerHTML = '<p id="erreurMsg">' + messageAucunPokemon() + '</p>';
             return;
           }
 
@@ -1457,7 +1488,7 @@
         const listeFiltree = await obtenirPokemonsFiltresParGeneration();
         if (listeFiltree.length === 0) {
           document.getElementById('pokemonContainer').innerHTML =
-            '<p id="erreurMsg">Aucun pokémon ne correspond à tes filtres (générations, légendaires, fabuleux).</p>';
+            '<p id="erreurMsg">' + messageAucunPokemon() + '</p>';
           return;
         }
 
@@ -1870,7 +1901,7 @@
         return {
           tourDe, tirageActuel, tirageEffectue, indicesEnvoyes, indicesActuels, indicesCris,
           choixEffectue, indexChoisi, revelesTableau, equipes, partieTerminee, generationsChoisies,
-          formesRegionalesActives, inclureLegendaires, inclureFabuleux
+          formesRegionalesActives, inclureLegendaires, inclureFabuleux, inclureNormaux
         };
       }
 
@@ -1888,7 +1919,7 @@
         partieTerminee = !!e.partieTerminee;
         generationsChoisies = e.generationsChoisies || null;
         appliquerOptionFormes(e.formesRegionalesActives !== false);
-        appliquerOptionCategories(e.inclureLegendaires !== false, e.inclureFabuleux !== false);
+        appliquerOptionCategories(e.inclureLegendaires !== false, e.inclureFabuleux !== false, e.inclureNormaux !== false);
         indiceCriActif = false;
       }
 
@@ -2081,7 +2112,7 @@
             break;
 
           case 'optionCategories':
-            appliquerOptionCategories(!!donnee.legendaires, !!donnee.fabuleux);
+            appliquerOptionCategories(!!donnee.legendaires, !!donnee.fabuleux, donnee.normaux !== false);
             break;
 
           case 'indices':
@@ -2694,6 +2725,7 @@
         });
 
         document.getElementById('formesRegionalesCheckbox').addEventListener('change', changerOptionFormes);
+        document.getElementById('normauxCheckbox').addEventListener('change', changerOptionCategories);
         document.getElementById('legendairesCheckbox').addEventListener('change', changerOptionCategories);
         document.getElementById('fabuleuxCheckbox').addEventListener('change', changerOptionCategories);
 
