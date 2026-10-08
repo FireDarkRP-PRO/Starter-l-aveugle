@@ -204,6 +204,14 @@
         background-color: #2e7d22;
       }
 
+      .compteur-liste {
+        margin: 8px 0 12px 0;
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+      }
+
       .btn-cri {
         padding: 6px 10px;
         font-size: 12px;
@@ -789,6 +797,8 @@
             </label>
           </div>
 
+          <p id="compteurListe" class="compteur-liste"></p>
+
           <button id="tirageBtn" onclick="tirerPokemons()">🎲 Tirer 3 Pokémon</button>
 
           <div id="pokemonContainer"></div>
@@ -937,12 +947,14 @@
         const caseF = document.getElementById('fabuleuxCheckbox');
         if (caseL) caseL.checked = legendaires;
         if (caseF) caseF.checked = fabuleux;
+        mettreAJourCompteur();
       }
 
       function changerOptionCategories() {
         inclureNormaux = document.getElementById('normauxCheckbox').checked;
         inclureLegendaires = document.getElementById('legendairesCheckbox').checked;
         inclureFabuleux = document.getElementById('fabuleuxCheckbox').checked;
+        mettreAJourCompteur();
         if (modeMultijoueur) {
           envoyerMessage({ type: 'optionCategories', legendaires: inclureLegendaires, fabuleux: inclureFabuleux, normaux: inclureNormaux });
         }
@@ -1024,6 +1036,7 @@
         });
 
         if (generationsChoisies) appliquerSelectionGenerations(generationsChoisies);
+        mettreAJourCompteur();
       }
 
       function basculerToutesGenerations(cocher) {
@@ -1037,6 +1050,7 @@
         const numerosSelectionnes = [...document.querySelectorAll('.gen-checkbox:checked')]
           .map(cb => parseInt(cb.value, 10));
         generationsChoisies = numerosSelectionnes;
+        mettreAJourCompteur();
         if (modeMultijoueur) {
           envoyerMessage({ type: 'selectionGen', generations: numerosSelectionnes });
         }
@@ -1047,6 +1061,7 @@
         document.querySelectorAll('.gen-checkbox').forEach(cb => {
           cb.checked = numerosSelectionnes.includes(parseInt(cb.value, 10));
         });
+        mettreAJourCompteur();
       }
 
       async function obtenirPokemonsFiltresParGeneration() {
@@ -1092,6 +1107,28 @@
           return 'Sélectionne au moins une génération avant de tirer.';
         }
         return 'Aucun pokémon ne correspond à tes filtres (générations, catégories).';
+      }
+
+      // Affiche combien de pokémon contient la liste de tirage avec les filtres actuels
+      // (générations + catégories). Les formes régionales ne comptent pas : elles ne sont
+      // pas ajoutées à la liste, elles remplacent seulement la forme du pokémon tiré.
+      let jetonCompteur = 0;
+
+      async function mettreAJourCompteur() {
+        const zone = document.getElementById('compteurListe');
+        if (!zone) return;
+
+        const jeton = ++jetonCompteur;
+        try {
+          const n = (await obtenirPokemonsFiltresParGeneration()).length;
+          if (jeton !== jetonCompteur) return; // un calcul plus récent a pris le relais
+          zone.textContent = n === 0
+            ? '📋 Aucun pokémon dans la liste de tirage'
+            : `📋 ${n} pokémon dans la liste de tirage`;
+        } catch (erreur) {
+          if (jeton === jetonCompteur) zone.textContent = '';
+          console.error('Impossible de compter les pokémon', erreur);
+        }
       }
 
       function choisirPokemonsAleatoires(liste, quantite) {
@@ -1740,6 +1777,7 @@
         document.getElementById('pokemonContainer').innerHTML = '';
         document.getElementById('filtresGenerations').innerHTML = '';
         document.getElementById('optionsTirage').style.display = 'none';
+        document.getElementById('compteurListe').style.display = 'none';
         document.getElementById('equipeGaucheZone').classList.remove('actif');
         document.getElementById('equipeDroiteZone').classList.remove('actif');
 
