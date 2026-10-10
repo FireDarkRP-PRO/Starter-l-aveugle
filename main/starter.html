@@ -237,6 +237,26 @@
         color: #555;
       }
 
+      .indice-silhouette {
+        display: inline-block;
+        background: #eee;
+        border-radius: 8px;
+        padding: 4px;
+        line-height: 0;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      .indice-silhouette img {
+        width: 100px;
+        height: 100px;
+        image-rendering: auto;
+        -webkit-user-drag: none;
+        user-select: none;
+        pointer-events: none; /* pas de clic droit / glisser-déposer sur l'image */
+      }
+
       .btn-reessayer {
         margin-left: 8px;
         padding: 3px 9px;
@@ -1202,6 +1222,8 @@
       let equipes = { hote: [], joueur: [] };
       let indicesCris = [null, null, null]; // URL du cri si l'indice est un cri (sinon null)
       let indiceCriActif = false;           // mode "cri" sélectionné dans le menu (côté lanceur)
+      let indicesSilhouettes = [null, null, null]; // silhouette noire (data:image/png) si l'indice est une silhouette
+      let indiceSilhouetteActif = false;    // mode "silhouette" sélectionné dans le menu (côté lanceur)
       let partieTerminee = false;
       let idPartie = '';
 
@@ -1244,6 +1266,8 @@
         revelesTableau = [false, false, false];
         indicesCris = [null, null, null];
         indiceCriActif = false;
+        indicesSilhouettes = [null, null, null];
+        indiceSilhouetteActif = false;
         Object.keys(donneesPokemonIndiceCache).forEach(cle => delete donneesPokemonIndiceCache[cle]);
       }
 
@@ -1264,7 +1288,8 @@
         description: 'Description Pokédex',
         talents: 'Talents',
         groupesOeuf: "Groupes d'Œuf",
-        cri: '🔊 Cri du pokémon (remplace le texte)'
+        cri: '🔊 Cri du pokémon (remplace le texte)',
+        silhouette: '🕶️ Silhouette du pokémon (remplace le texte)'
       };
 
       const typesEnFrancais = {
@@ -1354,8 +1379,15 @@
           return;
         }
 
+        // La silhouette remplace aussi la zone de texte, par une image noire
+        if (regle === 'silhouette') {
+          await activerModeSilhouette(select);
+          return;
+        }
+
         // Toute autre règle (ou aucune) : on revient aux zones de texte
         if (indiceCriActif) desactiverModeCri();
+        if (indiceSilhouetteActif) desactiverModeSilhouette();
         if (!regle) return;
 
         select.disabled = true;
@@ -1404,6 +1436,7 @@
       }
 
       async function activerModeCri(select) {
+        if (indiceSilhouetteActif) desactiverModeSilhouette();
         select.disabled = true;
         indiceCriActif = true;
         indicesCris = [null, null, null];
@@ -1460,6 +1493,119 @@
         });
       }
 
+      // ---------- Indice "Silhouette" ----------
+      // La silhouette est fabriquée CHEZ LE LANCEUR : on dessine le sprite dans un
+      // canvas, on passe tous les pixels visibles en noir, puis on n'envoie que cette
+      // image noire (data:image/png). L'autre joueur ne reçoit jamais l'URL du vrai
+      // sprite pour cet indice : même en ouvrant l'image dans un autre onglet ou en
+      // la faisant glisser, il ne peut obtenir que la silhouette.
+
+      function silhouetteValide(url) {
+        return typeof url === 'string'
+          && url.length < 100000
+          && /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(url);
+      }
+
+      function chargerImageCors(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous'; // nécessaire pour pouvoir lire les pixels du canvas
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Image introuvable : ' + url));
+          img.src = url;
+        });
+      }
+
+      async function creerSilhouette(p) {
+        const { spriteUrl } = infosAffichagePokemon(p);
+        const img = await chargerImageCors(spriteUrl);
+
+        // Même sprite que sur le site, agrandi ×4 avec lissage pour que la silhouette
+        // ne soit pas pixelisée
+        const echelle = 4;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth * echelle;
+        canvas.height = img.naturalHeight * echelle;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // On garde la transparence d'origine (bords doux) : seule la couleur passe en noir
+        const donnees = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const px = donnees.data;
+        for (let k = 0; k < px.length; k += 4) {
+          px[k] = 0; px[k + 1] = 0; px[k + 2] = 0;
+        }
+        ctx.putImageData(donnees, 0, 0);
+
+        const url = canvas.toDataURL('image/png');
+        return silhouetteValide(url) ? url : null;
+      }
+
+      function silhouetteHtml(url) {
+        return `<span class="indice-silhouette" oncontextmenu="return false" ondragstart="return false"><img src="${url}" alt="Silhouette" draggable="false"></span>`;
+      }
+
+      async function activerModeSilhouette(select) {
+        if (indiceCriActif) desactiverModeCri();
+        select.disabled = true;
+        indiceSilhouetteActif = true;
+        indicesSilhouettes = [null, null, null];
+        afficherSilhouetteDansZones(true);
+
+        await Promise.all(tirageActuel.map(async (p, i) => {
+          try {
+            indicesSilhouettes[i] = await creerSilhouette(p);
+          } catch (erreur) {
+            console.error('Impossible de créer la silhouette', erreur);
+            indicesSilhouettes[i] = null;
+          }
+        }));
+
+        select.disabled = false;
+        if (!indiceSilhouetteActif) return;
+        afficherSilhouetteDansZones(false);
+      }
+
+      function desactiverModeSilhouette() {
+        indiceSilhouetteActif = false;
+        indicesSilhouettes = [null, null, null];
+        afficherSilhouetteDansZones(false);
+      }
+
+      // Côté lanceur, avant l'envoi : masque la zone de texte et affiche la silhouette
+      function afficherSilhouetteDansZones(chargement) {
+        [0, 1, 2].forEach(i => {
+          const champ = document.getElementById('indiceTexte-' + i);
+          const zone = document.getElementById('indiceSilhouette-' + i);
+          if (!champ || !zone) return;
+
+          if (!indiceSilhouetteActif) {
+            champ.style.display = '';
+            zone.style.display = 'none';
+            zone.innerHTML = '';
+            return;
+          }
+
+          zone.style.display = '';
+
+          if (chargement) {
+            champ.style.display = 'none';
+            zone.innerHTML = '<p class="note-cri">⏳ Création de la silhouette...</p>';
+          } else if (indicesSilhouettes[i]) {
+            champ.style.display = 'none';
+            zone.innerHTML = `
+              ${silhouetteHtml(indicesSilhouettes[i])}
+              <p class="note-cri">La silhouette sera envoyée à la place d'un texte</p>
+            `;
+          } else {
+            champ.style.display = '';
+            zone.innerHTML = '<p class="note-cri">⚠️ Silhouette indisponible pour ce pokémon : écris un indice à la place</p>';
+          }
+        });
+      }
+
       let audioCriEnCours = null;
 
       function jouerCri(i, evenement) {
@@ -1495,6 +1641,9 @@
 
       // HTML d'un indice (texte ou cri) pour le pokémon i
       function indiceHtml(i, texteSiVide) {
+        if (indicesSilhouettes[i]) {
+          return silhouetteHtml(indicesSilhouettes[i]);
+        }
         if (indicesCris[i]) {
           return `<span class="indice-cri" onclick="event.stopPropagation()"><button type="button" class="btn-cri" data-cri="${i}" onclick="jouerCri(${i}, event)">🔊 Écouter le cri</button></span>`;
         }
@@ -1539,14 +1688,15 @@
 
       function envoyerIndices() {
         indicesCris = [0, 1, 2].map(i => (indiceCriActif && urlCriValide(indicesCris[i])) ? indicesCris[i] : null);
+        indicesSilhouettes = [0, 1, 2].map(i => (indiceSilhouetteActif && silhouetteValide(indicesSilhouettes[i])) ? indicesSilhouettes[i] : null);
         indicesActuels = [0, 1, 2].map(i => {
-          if (indicesCris[i]) return ''; // indice = cri : pas de texte
+          if (indicesCris[i] || indicesSilhouettes[i]) return ''; // indice = cri ou silhouette : pas de texte
           const champ = document.getElementById('indiceTexte-' + i);
           return champ ? champ.value.trim() : '';
         });
         indicesEnvoyes = true;
 
-        envoyerMessage({ type: 'indices', textes: indicesActuels, cris: indicesCris });
+        envoyerMessage({ type: 'indices', textes: indicesActuels, cris: indicesCris, silhouettes: indicesSilhouettes });
 
         rafraichirVueActive();
       }
@@ -1667,6 +1817,7 @@
             zone.innerHTML = `
               <textarea class="indice-texte" id="indiceTexte-${i}" placeholder="Indice pour ce pokémon..."></textarea>
               <div id="indiceCri-${i}" style="display:none;"></div>
+              <div id="indiceSilhouette-${i}" style="display:none;"></div>
             `;
           } else if (!choixEffectue) {
             zone.innerHTML = `<p class="indice-envoye">${indiceHtml(i, '(vide)')}</p>`;
@@ -1704,6 +1855,13 @@
           const select = document.getElementById('regleIndicePredefinie');
           if (select) select.value = 'cri';
           afficherCriDansZones(false);
+        }
+
+        // Idem pour le mode "silhouette"
+        if (!indicesEnvoyes && indiceSilhouetteActif) {
+          const select = document.getElementById('regleIndicePredefinie');
+          if (select) select.value = 'silhouette';
+          afficherSilhouetteDansZones(false);
         }
       }
 
@@ -1937,7 +2095,7 @@
 
       function construireEtat() {
         return {
-          tourDe, tirageActuel, tirageEffectue, indicesEnvoyes, indicesActuels, indicesCris,
+          tourDe, tirageActuel, tirageEffectue, indicesEnvoyes, indicesActuels, indicesCris, indicesSilhouettes,
           choixEffectue, indexChoisi, revelesTableau, equipes, partieTerminee, generationsChoisies,
           formesRegionalesActives, inclureLegendaires, inclureFabuleux, inclureNormaux
         };
@@ -1950,6 +2108,7 @@
         indicesEnvoyes = !!e.indicesEnvoyes;
         indicesActuels = e.indicesActuels || ['', '', ''];
         indicesCris = [0, 1, 2].map(i => (e.indicesCris && urlCriValide(e.indicesCris[i])) ? e.indicesCris[i] : null);
+        indicesSilhouettes = [0, 1, 2].map(i => (e.indicesSilhouettes && silhouetteValide(e.indicesSilhouettes[i])) ? e.indicesSilhouettes[i] : null);
         choixEffectue = !!e.choixEffectue;
         indexChoisi = (e.indexChoisi === undefined) ? null : e.indexChoisi;
         revelesTableau = e.revelesTableau || [false, false, false];
@@ -1959,6 +2118,7 @@
         appliquerOptionFormes(e.formesRegionalesActives !== false);
         appliquerOptionCategories(e.inclureLegendaires !== false, e.inclureFabuleux !== false, e.inclureNormaux !== false);
         indiceCriActif = false;
+        indiceSilhouetteActif = false;
       }
 
       function sauvegarderEtat() {
@@ -2156,6 +2316,7 @@
           case 'indices':
             indicesActuels = donnee.textes;
             indicesCris = [0, 1, 2].map(i => (donnee.cris && urlCriValide(donnee.cris[i])) ? donnee.cris[i] : null);
+            indicesSilhouettes = [0, 1, 2].map(i => (donnee.silhouettes && silhouetteValide(donnee.silhouettes[i])) ? donnee.silhouettes[i] : null);
             indicesEnvoyes = true;
             rafraichirVueMultijoueur();
             break;
