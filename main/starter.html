@@ -1500,9 +1500,13 @@
       // sprite pour cet indice : même en ouvrant l'image dans un autre onglet ou en
       // la faisant glisser, il ne peut obtenir que la silhouette.
 
+      // Taille max d'une silhouette envoyée (en caractères). Les messages passent en JSON
+      // sans découpage : au-delà d'environ 16 Ko, le canal de données peut se couper.
+      const TAILLE_MAX_SILHOUETTE = 12000;
+
       function silhouetteValide(url) {
         return typeof url === 'string'
-          && url.length < 100000
+          && url.length <= TAILLE_MAX_SILHOUETTE
           && /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(url);
       }
 
@@ -1520,9 +1524,16 @@
         const { spriteUrl } = infosAffichagePokemon(p);
         const img = await chargerImageCors(spriteUrl);
 
-        // Même sprite que sur le site, agrandi ×4 avec lissage pour que la silhouette
-        // ne soit pas pixelisée
-        const echelle = 4;
+        // Même sprite que sur le site, agrandi avec lissage pour que la silhouette
+        // ne soit pas pixelisée. Le message est envoyé en JSON sans découpage : il doit
+        // rester léger (un message trop gros fait tomber la connexion), donc ×2 au
+        // maximum, et ×1 si l'image est quand même trop lourde.
+        let url = dessinerSilhouette(img, 2);
+        if (!url || url.length > TAILLE_MAX_SILHOUETTE) url = dessinerSilhouette(img, 1);
+        return (url && url.length <= TAILLE_MAX_SILHOUETTE && silhouetteValide(url)) ? url : null;
+      }
+
+      function dessinerSilhouette(img, echelle) {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth * echelle;
         canvas.height = img.naturalHeight * echelle;
@@ -1539,8 +1550,7 @@
         }
         ctx.putImageData(donnees, 0, 0);
 
-        const url = canvas.toDataURL('image/png');
-        return silhouetteValide(url) ? url : null;
+        return canvas.toDataURL('image/png');
       }
 
       function silhouetteHtml(url) {
@@ -1696,7 +1706,12 @@
         });
         indicesEnvoyes = true;
 
-        envoyerMessage({ type: 'indices', textes: indicesActuels, cris: indicesCris, silhouettes: indicesSilhouettes });
+        // Chaque silhouette part dans son propre petit message (reçus dans l'ordre),
+        // puis le message d'indices, qui ne contient plus que du texte.
+        indicesSilhouettes.forEach((url, i) => {
+          if (url) envoyerMessage({ type: 'silhouette', index: i, data: url });
+        });
+        envoyerMessage({ type: 'indices', textes: indicesActuels, cris: indicesCris });
 
         rafraichirVueActive();
       }
@@ -2216,7 +2231,12 @@
             // L'autre joueur a perdu son état (plus de sauvegarde) : on lui envoie un instantané
             const plusPetiteSeqDispo = fileEnvoi.length ? fileEnvoi[0].seq : seqSortant + 1;
             if (typeof donnee.ack === 'number' && donnee.ack < plusPetiteSeqDispo - 1) {
-              envoyerBrut({ t: 'snap', etat: construireEtat(), seqSortant, seqEntrant });
+              const etatSnap = construireEtat();
+              etatSnap.indicesSilhouettes = [null, null, null]; // envoyées à part, une par message
+              envoyerBrut({ t: 'snap', etat: etatSnap, seqSortant, seqEntrant });
+              indicesSilhouettes.forEach((url, i) => {
+                if (url) envoyerBrut({ t: 'sil', index: i, data: url });
+              });
             }
 
             transmettreFile(true); // renvoie tout ce que l'autre n'a pas confirmé
@@ -2230,6 +2250,13 @@
 
           case 'snap':
             appliquerInstantane(donnee);
+            break;
+
+          case 'sil':
+            if ([0, 1, 2].includes(donnee.index) && silhouetteValide(donnee.data)) {
+              indicesSilhouettes[donnee.index] = donnee.data;
+              rafraichirVueMultijoueur();
+            }
             break;
 
           case 'bye':
@@ -2313,10 +2340,15 @@
             appliquerOptionCategories(!!donnee.legendaires, !!donnee.fabuleux, donnee.normaux !== false);
             break;
 
+          case 'silhouette':
+            if ([0, 1, 2].includes(donnee.index) && silhouetteValide(donnee.data)) {
+              indicesSilhouettes[donnee.index] = donnee.data;
+            }
+            break;
+
           case 'indices':
             indicesActuels = donnee.textes;
             indicesCris = [0, 1, 2].map(i => (donnee.cris && urlCriValide(donnee.cris[i])) ? donnee.cris[i] : null);
-            indicesSilhouettes = [0, 1, 2].map(i => (donnee.silhouettes && silhouetteValide(donnee.silhouettes[i])) ? donnee.silhouettes[i] : null);
             indicesEnvoyes = true;
             rafraichirVueMultijoueur();
             break;
