@@ -1,3 +1,0 @@
-- Désactivé la recherche pour le joueur qui choisi un pokémon
-
-- ajouté des règle prédéfini pour l'envoie d'indice 
