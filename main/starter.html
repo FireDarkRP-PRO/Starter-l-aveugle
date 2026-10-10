@@ -2071,6 +2071,7 @@
       let debutTentativeLe = 0;
       let nbEchecs = 0;
       let dernierBadge = '';
+      let detailPerte = '';        // dernière cause technique de coupure (affichée dans le badge)
 
       function connexionVivante() {
         return !!(connexionMultijoueur && connexionMultijoueur.open);
@@ -2102,7 +2103,8 @@
             : '⏳ Connexion avec l\'autre joueur...';
           afficherBadgeMultijoueur(texte, 'badge-attente', nbEchecs >= 3);
         } else {
-          afficherBadgeMultijoueur('🟠 Connexion perdue — reconnexion automatique... (tes actions sont gardées et seront envoyées)', 'badge-attente', true);
+          afficherBadgeMultijoueur('🟠 Connexion perdue — reconnexion automatique... (tes actions sont gardées et seront envoyées)'
+            + (detailPerte ? ' <small>[' + echapperHtml(detailPerte) + ']</small>' : ''), 'badge-attente', true);
         }
       }
 
@@ -2167,7 +2169,11 @@
           appliquerEtat(sauvegarde.etat);
           seqSortant = sauvegarde.seqSortant || 0;
           seqEntrant = sauvegarde.seqEntrant || 0;
-          fileEnvoi = (sauvegarde.fileEnvoi || []).map(x => ({ seq: x.seq, msg: x.msg, envoyeLe: 0 }));
+          fileEnvoi = (sauvegarde.fileEnvoi || []).map(x => ({
+            seq: x.seq,
+            msg: messageTropGros({ t: 'm', seq: x.seq, msg: x.msg }) ? { type: 'noop' } : x.msg,
+            envoyeLe: 0
+          }));
           return true;
         } catch (erreur) {
           console.warn('Sauvegarde de partie illisible, on repart de zéro', erreur);
@@ -2177,8 +2183,24 @@
 
       // ---------- Envoi fiable ----------
 
+      // Les messages passent en JSON sans découpage : un message de plus d'environ 16 Ko
+      // fait tomber le canal de données (et la reconnexion le renvoie en boucle).
+      const TAILLE_MAX_MESSAGE = 14000;
+
+      function messageTropGros(objet) {
+        try {
+          return JSON.stringify(objet).length > TAILLE_MAX_MESSAGE;
+        } catch (erreur) {
+          return true;
+        }
+      }
+
       function envoyerBrut(objet) {
         if (!connexionVivante()) return false;
+        if (messageTropGros(objet)) {
+          console.warn('Message trop gros, non envoyé', objet && objet.t);
+          return false;
+        }
         try {
           connexionMultijoueur.send(objet);
           return true;
@@ -2201,6 +2223,12 @@
 
         fileEnvoi.forEach(item => {
           if (forcer || !item.envoyeLe || maintenant - item.envoyeLe > 5000) {
+            // Un message trop gros ne partira jamais : on le remplace par un message vide
+            // (même numéro) pour ne pas bloquer la file ni couper la connexion en boucle
+            if (messageTropGros({ t: 'm', seq: item.seq, msg: item.msg, ack: seqEntrant })) {
+              console.warn('Message trop gros abandonné', item.seq);
+              item.msg = { type: 'noop' };
+            }
             if (envoyerBrut({ t: 'm', seq: item.seq, msg: item.msg, ack: seqEntrant })) {
               item.envoyeLe = maintenant;
             }
@@ -2396,6 +2424,7 @@
           if (connexionMultijoueur !== conn) return;
           dejaConnecte = true;
           nbEchecs = 0;
+          detailPerte = '';
           derniereReceptionLe = Date.now();
           envoyerBrut({ t: 'hello', ack: seqEntrant, partie: idPartie });
           majBadge();
@@ -2418,6 +2447,7 @@
 
         conn.on('error', (erreur) => {
           console.warn('Erreur de connexion', erreur);
+          detailPerte = 'erreur : ' + ((erreur && (erreur.type || erreur.message)) || 'inconnue');
           if (connexionMultijoueur !== conn) return;
           try { conn.close(); } catch (e) { /* ignoré */ }
           connexionMultijoueur = null;
