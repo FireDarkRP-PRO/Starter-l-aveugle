@@ -9,6 +9,12 @@
         document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
       }
     </script>
+    <!-- Comptes + historique des parties (Firebase) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script src="./firebase-config.js"></script>
+    <script src="./compte.js"></script>
     <style>
       body {
         padding-bottom: 300px;
@@ -1972,6 +1978,7 @@
         const equipeAdverse = equipes[monRoleJeu === 'hote' ? 'joueur' : 'hote'];
 
         zone.innerHTML = `
+          <div id="zoneSauvegardePartie"></div>
           <h2 class="titre-equipe">🎉 Ton équipe</h2>
           <div class="pokemon-team-grid">${genererListe(monEquipe)}</div>
           <button id="btnTelechargerEquipe" onclick="genererFormatShowdown()">📋 Générer le format Pokémon Showdown</button>
@@ -1980,6 +1987,27 @@
           <h2 class="titre-equipe">Équipe adverse</h2>
           <div class="pokemon-team-grid">${genererListe(equipeAdverse)}</div>
         `;
+
+        enregistrerPartieTerminee();
+      }
+
+      // Enregistre la partie dans le profil (Firebase) — uniquement quand les DEUX équipes sont
+      // complètes. Une partie abandonnée n'arrive jamais ici, donc n'est jamais enregistrée.
+      function enregistrerPartieTerminee() {
+        if (typeof CompteParties === 'undefined' || !CompteParties.actif) return;
+        if (!modeMultijoueur || !partieTerminee) return;
+        if (equipes.hote.length < 6 || equipes.joueur.length < 6) return;
+
+        const autreRole = monRoleJeu === 'hote' ? 'joueur' : 'hote';
+        CompteParties.suivreEtEnregistrer({
+          idPartie,
+          role: monRoleJeu,
+          monEquipe: equipes[monRoleJeu],
+          equipeAdverse: equipes[autreRole],
+          zoneId: 'zoneSauvegardePartie',
+          // le pseudo est envoyé à l'adversaire pour qu'il l'affiche dans son historique
+          envoyerPseudo: (pseudo) => { if (pseudo) envoyerMessage({ type: 'pseudo', pseudo }); }
+        });
       }
 
       async function genererFormatShowdown() {
@@ -2395,6 +2423,12 @@
 
           case 'finTour':
             finDuTour();
+            break;
+
+          case 'pseudo':
+            if (typeof CompteParties !== 'undefined' && typeof donnee.pseudo === 'string') {
+              CompteParties.definirAdversaire(donnee.pseudo);
+            }
             break;
         }
       }

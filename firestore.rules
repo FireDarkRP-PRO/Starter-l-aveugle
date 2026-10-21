@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Chaque joueur n'accède qu'à ses propres parties.
+    match /users/{uid}/parties/{partieId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+
+      // Une partie ne peut être créée que si les deux équipes sont complètes (6 + 6)
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.monEquipe is list
+        && request.resource.data.equipeAdverse is list
+        && request.resource.data.monEquipe.size() == 6
+        && request.resource.data.equipeAdverse.size() == 6
+        && request.resource.data.dateMs is number;
+
+      // Modification autorisée (ex. pseudo de l'adversaire), mais pas la date ni la taille des équipes
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.monEquipe.size() == 6
+        && request.resource.data.equipeAdverse.size() == 6
+        && request.resource.data.dateMs == resource.data.dateMs;
+    }
+  }
+}

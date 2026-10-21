@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon profil - Starter à l'aveugle</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+  <script src="./compte.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px 10px 200px 10px;
+      background-image: url("https://play.pokemonshowdown.com/fx/client-bg-charizards.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+    #BackBtn {
+      position: fixed; top: 15px; left: 15px;
+      padding: 10px 15px; font-size: 14px;
+      background-color: #3c9c2c; color: white; border: none; border-radius: 8px;
+      z-index: 9999; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-weight: bold; letter-spacing: 1px; text-decoration: none;
+    }
+    #BackBtn:hover { background-color: #2e7d22; }
+    h1 { color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); margin-top: 60px; }
+
+    .carte {
+      background: rgba(255,255,255,0.95); color: #222;
+      border-radius: 14px; padding: 22px; max-width: 380px;
+      margin: 15px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .carte input {
+      display: block; width: 100%; box-sizing: border-box;
+      padding: 10px; margin: 8px 0; font-size: 15px;
+      border: 2px solid #ccc; border-radius: 8px;
+    }
+    .carte input:focus { border-color: #3c9c2c; outline: none; }
+    .onglets { display: flex; gap: 8px; margin-bottom: 10px; }
+    .onglets button {
+      flex: 1; padding: 9px; border: none; border-radius: 8px; cursor: pointer;
+      font-weight: bold; background: #ddd; color: #333;
+    }
+    .onglets button.actif { background: #3c9c2c; color: white; }
+    .btn {
+      padding: 10px 20px; font-size: 15px; font-weight: bold; color: white;
+      border: none; border-radius: 8px; cursor: pointer; margin: 6px 3px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .btn-vert { background: #3c9c2c; } .btn-vert:hover { background: #2e7d22; }
+    .btn-rouge { background: #ff3c3c; } .btn-rouge:hover { background: #cc0000; }
+    .btn-gris { background: #666; } .btn-gris:hover { background: #444; }
+    .btn:disabled { background: #999; cursor: default; }
+    .message { margin-top: 10px; font-size: 14px; font-weight: bold; min-height: 18px; }
+    .message.erreur { color: #c0392b; }
+    .message.ok { color: #2e7d22; }
+    .ou { margin: 10px 0 2px 0; color: #777; font-size: 13px; }
+
+    .entete-profil {
+      color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    .entete-profil h2 { margin: 0 0 8px 0; }
+
+    #listeParties { max-width: 900px; margin: 20px auto; }
+    .partie {
+      background: rgba(255,255,255,0.95); color: #222; text-align: left;
+      border-radius: 14px; padding: 16px 20px; margin: 16px 0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .partie-tete {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      justify-content: space-between; border-bottom: 2px dashed #ccc; padding-bottom: 8px;
+    }
+    .partie-tete .date { font-weight: bold; font-size: 16px; }
+    .partie h4 { margin: 14px 0 6px 0; color: #2c3e50; }
+    .grille { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mini-carte {
+      width: 92px; text-align: center; background: #f4f4f4;
+      border-radius: 10px; padding: 6px 4px; font-size: 12px;
+    }
+    .mini-carte img { width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated; }
+    .mini-carte .num { color: #777; display: block; }
+    .actions { margin-top: 6px; }
+    .btn-petit {
+      padding: 6px 12px; font-size: 13px; font-weight: bold; color: white;
+      background: #3c9c2c; border: none; border-radius: 6px; cursor: pointer;
+    }
+    .btn-petit:hover { background: #2e7d22; }
+    .btn-petit.danger { background: #c0392b; } .btn-petit.danger:hover { background: #962d22; }
+    .btn-petit:disabled { background: #999; cursor: default; }
+    .zone-sd textarea {
+      width: 100%; box-sizing: border-box; height: 160px; margin-top: 8px;
+      font-family: monospace; font-size: 13px; border-radius: 8px; padding: 8px;
+    }
+    .vide { color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); font-size: 16px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <a id="BackBtn" href="./index.html">↩️ Retour</a>
+  <h1>👤 Mon profil</h1>
+
+  <!-- Firebase non configuré -->
+  <div id="zoneNonConfigure" class="carte" hidden>
+    <p>⚠️ Les comptes ne sont pas encore configurés.</p>
+    <p style="font-size:13px;">Renseigne ta configuration Firebase dans <code>main/firebase-config.js</code>.</p>
+  </div>
+
+  <!-- Chargement -->
+  <p id="zoneChargement" class="vide">⏳ Chargement…</p>
+
+  <!-- Connexion / inscription -->
+  <div id="zoneAuth" class="carte" hidden>
+    <div class="onglets">
+      <button type="button" id="ongletConnexion" class="actif">Connexion</button>
+      <button type="button" id="ongletInscription">Inscription</button>
+    </div>
+    <input type="text" id="champPseudo" placeholder="Pseudo (2 à 20 caractères)" maxlength="20" autocomplete="nickname" hidden>
+    <input type="email" id="champEmail" placeholder="Adresse e-mail" autocomplete="email">
+    <input type="password" id="champMdp" placeholder="Mot de passe (6 caractères minimum)" autocomplete="current-password">
+    <button type="button" id="btnValider" class="btn btn-vert">Se connecter</button>
+    <div class="ou">— ou —</div>
+    <button type="button" id="btnGoogle" class="btn btn-rouge">Continuer avec Google</button>
+    <p id="messageAuth" class="message"></p>
+  </div>
+
+  <!-- Profil connecté -->
+  <div id="zoneProfil" hidden>
+    <div class="entete-profil">
+      <h2 id="titreProfil"></h2>
+      <button type="button" id="btnDeconnexion" class="btn btn-gris">Se déconnecter</button>
+    </div>
+    <h2 class="entete-profil" style="margin-top:30px;">📜 Mes parties</h2>
+    <p id="messageParties" class="vide"></p>
+    <div id="listeParties"></div>
+    <button type="button" id="btnPlus" class="btn btn-vert" hidden>Voir plus de parties</button>
+  </div>
+
+  <script>
+    const C = window.CompteParties;
+    const $ = (id) => document.getElementById(id);
+
+    let modeInscription = false;
+    let dernierDoc = null;
+    const parties = new Map(); // id -> données de la partie
+    const TAILLE_PAGE = 20;
+
+    // ---------- Connexion / inscription ----------
+
+    function afficherMessageAuth(texte, classe) {
+      const m = $('messageAuth');
+      m.textContent = texte;
+      m.className = 'message ' + (classe || '');
+    }
+
+    function choisirOnglet(inscription) {
+      modeInscription = inscription;
+      $('ongletConnexion').classList.toggle('actif', !inscription);
+      $('ongletInscription').classList.toggle('actif', inscription);
+      $('champPseudo').hidden = !inscription;
+      $('btnValider').textContent = inscription ? 'Créer mon compte' : 'Se connecter';
+      $('champMdp').autocomplete = inscription ? 'new-password' : 'current-password';
+      afficherMessageAuth('');
+    }
+
+    async function valider() {
+      const email = $('champEmail').value.trim();
+      const mdp = $('champMdp').value;
+      const pseudo = $('champPseudo').value.trim();
+
+      if (!email || !mdp) { afficherMessageAuth('Remplis ton e-mail et ton mot de passe.', 'erreur'); return; }
+      if (modeInscription && (pseudo.length < 2 || pseudo.length > 20)) {
+        afficherMessageAuth('Le pseudo doit faire entre 2 et 20 caractères.', 'erreur');
+        return;
+      }
+
+      $('btnValider').disabled = true;
+      afficherMessageAuth('⏳ …', '');
+      try {
+        if (modeInscription) {
+          await C.inscrire(email, mdp, pseudo);
+          afficherTitreProfil(); // le pseudo n'était pas encore défini quand la connexion a été détectée
+        } else {
+          await C.connecter(email, mdp);
+        }
+      } catch (erreur) {
+        console.error(erreur);
+        afficherMessageAuth(C.messageErreurAuth(erreur), 'erreur');
+      } finally {
+        $('btnValider').disabled = false;
+      }
+    }
+
+    async function validerGoogle() {
+      $('btnGoogle').disabled = true;
+      try {
+        await C.connecterGoogle();
+      } catch (erreur) {
+        console.error(erreur);
+        afficherMessageAuth(C.messageErreurAuth(erreur), 'erreur');
+      } finally {
+        $('btnGoogle').disabled = false;
+      }
+    }
+
+    // ---------- Profil ----------
+
+    function afficherTitreProfil() {
+      $('titreProfil').textContent = '👤 ' + C.pseudoActuel();
+    }
+
+    function formaterDate(ms) {
+      return new Date(ms).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+    }
+
+    function htmlEquipe(equipe) {
+      return (equipe || []).map((p) => {
+        const { idFormate, spriteUrl } = C.infosAffichage(p);
+        return `
+          <div class="mini-carte">
+            <img src="${C.echapper(spriteUrl)}" alt="${C.echapper(p.nom)}" onerror="this.style.opacity=0.2">
+            <div>${C.echapper(p.nom)}</div>
+            <span class="num">#${C.echapper(idFormate)}</span>
+          </div>`;
+      }).join('');
+    }
+
+    function htmlPartie(id, d) {
+      const adversaire = d.adversaire ? C.echapper(d.adversaire) : 'Adversaire inconnu';
+      return `
+        <div class="partie" data-id="${C.echapper(id)}">
+          <div class="partie-tete">
+            <span class="date">📅 ${C.echapper(formaterDate(d.dateMs))}</span>
+            <span>⚔️ Contre : <strong>${adversaire}</strong></span>
+            <button type="button" class="btn-petit danger" data-act="supprimer">🗑️ Supprimer</button>
+          </div>
+          <h4>🎉 Ton équipe</h4>
+          <div class="grille">${htmlEquipe(d.monEquipe)}</div>
+          <div class="actions"><button type="button" class="btn-petit" data-act="showdown-mon">📋 Format Showdown (ton équipe)</button></div>
+          <h4>Équipe adverse</h4>
+          <div class="grille">${htmlEquipe(d.equipeAdverse)}</div>
+          <div class="actions"><button type="button" class="btn-petit" data-act="showdown-adv">📋 Format Showdown (équipe adverse)</button></div>
+          <div class="zone-sd"></div>
+        </div>`;
+    }
+
+    async function chargerParties(suite) {
+      const message = $('messageParties');
+      $('btnPlus').disabled = true;
+      if (!suite) {
+        $('listeParties').innerHTML = '';
+        parties.clear();
+        dernierDoc = null;
+        message.textContent = '⏳ Chargement de tes parties…';
+      }
+
+      try {
+        const res = await C.listerParties(TAILLE_PAGE, suite ? dernierDoc : null);
+        res.docs.forEach((doc) => {
+          const d = doc.data();
+          parties.set(doc.id, d);
+          $('listeParties').insertAdjacentHTML('beforeend', htmlPartie(doc.id, d));
+        });
+        if (res.dernier) dernierDoc = res.dernier;
+
+        $('btnPlus').hidden = res.docs.length < TAILLE_PAGE;
+        message.textContent = parties.size === 0
+          ? "Aucune partie enregistrée pour l'instant. Termine une partie multijoueur en étant connecté : elle apparaîtra ici."
+          : '';
+      } catch (erreur) {
+        console.error(erreur);
+        message.textContent = '⚠️ Impossible de charger tes parties. Réessaie plus tard.';
+      } finally {
+        $('btnPlus').disabled = false;
+      }
+    }
+
+    async function afficherShowdown(carte, id, cote) {
+      const d = parties.get(id);
+      if (!d) return;
+      const zone = carte.querySelector('.zone-sd');
+      const bouton = carte.querySelector(`[data-act="showdown-${cote}"]`);
+      const equipe = cote === 'mon' ? d.monEquipe : d.equipeAdverse;
+      let texte = cote === 'mon' ? d.monShowdown : d.advShowdown;
+
+      if (!texte) { // sauvegarde sans texte : on le régénère à la demande
+        const original = bouton.textContent;
+        bouton.disabled = true;
+        bouton.textContent = '⏳ Génération…';
+        try { texte = await C.genererTexteShowdown(equipe); }
+        finally { bouton.disabled = false; bouton.textContent = original; }
+      }
+
+      zone.innerHTML = `
+        <h4>${cote === 'mon' ? 'Ton équipe' : 'Équipe adverse'} — format Showdown</h4>
+        <textarea readonly></textarea>
+        <button type="button" class="btn-petit" data-act="copier">📄 Copier</button>
+        <a class="btn-petit" style="text-decoration:none;display:inline-block;margin-left:6px;" href="https://pokemonshowdown.com/" target="_blank" rel="noopener">⚔️ Ouvrir Showdown</a>`;
+      zone.querySelector('textarea').value = texte; // .value : jamais interprété comme du HTML
+    }
+
+    async function copier(carte, bouton) {
+      const champ = carte.querySelector('.zone-sd textarea');
+      if (!champ) return;
+      try {
+        await navigator.clipboard.writeText(champ.value);
+      } catch (e) {
+        champ.select();
+        document.execCommand('copy');
+      }
+      const original = bouton.textContent;
+      bouton.textContent = '✅ Copié !';
+      setTimeout(() => { bouton.textContent = original; }, 1500);
+    }
+
+    async function supprimer(carte, id) {
+      if (!confirm('Supprimer définitivement cette partie de ton historique ?')) return;
+      try {
+        await C.supprimerPartie(id);
+        parties.delete(id);
+        carte.remove();
+        if (parties.size === 0) {
+          $('messageParties').textContent = 'Aucune partie enregistrée pour l\'instant.';
+        }
+      } catch (erreur) {
+        console.error(erreur);
+        alert('Suppression impossible. Réessaie.');
+      }
+    }
+
+    $('listeParties').addEventListener('click', (e) => {
+      const bouton = e.target.closest('button[data-act]');
+      if (!bouton) return;
+      const carte = bouton.closest('.partie');
+      if (!carte) return;
+      const id = carte.dataset.id;
+
+      switch (bouton.dataset.act) {
+        case 'showdown-mon': afficherShowdown(carte, id, 'mon'); break;
+        case 'showdown-adv': afficherShowdown(carte, id, 'adv'); break;
+        case 'copier': copier(carte, bouton); break;
+        case 'supprimer': supprimer(carte, id); break;
+      }
+    });
+
+    // ---------- Démarrage ----------
+
+    $('ongletConnexion').addEventListener('click', () => choisirOnglet(false));
+    $('ongletInscription').addEventListener('click', () => choisirOnglet(true));
+    $('btnValider').addEventListener('click', valider);
+    $('btnGoogle').addEventListener('click', validerGoogle);
+    $('btnDeconnexion').addEventListener('click', () => C.deconnecter());
+    $('btnPlus').addEventListener('click', () => chargerParties(true));
+    ['champEmail', 'champMdp', 'champPseudo'].forEach((id) => {
+      $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') valider(); });
+    });
+
+    if (!C || !C.actif) {
+      $('zoneChargement').hidden = true;
+      $('zoneNonConfigure').hidden = false;
+    } else {
+      C.onAuth((user) => {
+        $('zoneChargement').hidden = true;
+        if (user) {
+          $('zoneAuth').hidden = true;
+          $('zoneProfil').hidden = false;
+          afficherTitreProfil();
+          chargerParties(false);
+        } else {
+          $('zoneProfil').hidden = true;
+          $('zoneAuth').hidden = false;
+          $('listeParties').innerHTML = '';
+          parties.clear();
+        }
+      });
+    }
+  </script>
+</body>
+</html>

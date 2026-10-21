@@ -36,6 +36,13 @@ Les règles détaillées sont disponibles sur la page `starterRules.html` du sit
 - Choisir une règle **pré-remplit** les indices, mais le joueur peut toujours les modifier avant d'envoyer.
 - Le choix du devineur est **irréversible** et ne peut pas être « spoilé » (équipes mises à jour uniquement à la fin du tour).
 
+### Comptes et historique des parties
+- **Compte** (e-mail + mot de passe, ou Google) via Firebase Authentication, depuis la page `profil.html`.
+- À la fin d'une partie multijoueur (les **deux équipes complètes**), la partie est enregistrée automatiquement dans le profil de **chaque joueur connecté**, avec la **date**, le **pseudo de l'adversaire**, les deux équipes et le texte Showdown des deux équipes.
+- Une partie **non terminée n'est jamais enregistrée** (vérifié côté site et par les règles Firestore : 6 + 6 Pokémon obligatoires).
+- Si le joueur n'est pas connecté à la fin de la partie, il peut se connecter dans un autre onglet : la partie s'enregistre alors toute seule.
+- Dans le profil, on peut revoir toutes ses parties, **copier le format Showdown** de son équipe ou de l'équipe adverse, ou supprimer une partie.
+
 ### Fin de partie
 - Vue « équipes complètes » une fois 6 Pokémon par joueur.
 - Export de l'équipe au **format Pokémon Showdown** (noms en anglais via PokeAPI, avec talent et attaques quand disponibles), à copier-coller dans le TeamBuilder.
@@ -58,9 +65,13 @@ Starter-l-aveugle-main
 ├── main/                             # Pages du site
 │   ├── index.html                    # Menu principal
 │   ├── liensPokemon.html             # Liens externes utiles
+│   ├── profil.html                   # Connexion / inscription + historique des parties
+│   ├── compte.js                     # Comptes Firebase + enregistrement des parties
+│   ├── firebase-config.js            # Configuration Firebase du projet (à remplir)
 │   ├── salon.html                    # Création / connexion à un salon multijoueur
 │   ├── starter.html                  # Page de jeu (solo + multijoueur)
 │   └── starterRules.html             # Règles du jeu
+├── firestore.rules                   # Règles de sécurité Firestore (à coller dans la console)
 ├── Générer Pokémons.py               # Script : génère la liste des Pokémon
 └── Générer_Pokémons_Lég_Fab.py       # Script : génère légendaires & fabuleux
 ```
@@ -71,6 +82,7 @@ Starter-l-aveugle-main
 
 - **HTML / CSS / JavaScript** — site 100 % statique, sans backend.
 - **[PeerJS](https://peerjs.com/)** — connexion directe entre les deux joueurs (pas de compte ni de serveur à gérer, compatible GitHub Pages).
+- **[Firebase](https://firebase.google.com/)** (Authentication + Cloud Firestore) — comptes et historique des parties.
 - **[PokéAPI](https://pokeapi.co/)** — images, cris, données et noms anglais pour l'export Showdown.
 - **Python** (`requests`, `beautifulsoup4`, `lxml`) — scripts de génération des fichiers de `BDD/`.
 - **GitHub Pages** — hébergement.
