@@ -9,7 +9,7 @@ body {
   text-align: center;
   padding: 50px;
   background-color: black;
-  background-image: url(https://the4kwallpaperfactory.com/wp-content/uploads/2025/04/pikachu-2-2048x1152.jpg);
+  background-image: url(../Image/bgIndex.webp);
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
@@ -45,22 +45,6 @@ p{
 
 <h1>By FireDarkRP</h1>
 
-<!-- Bouton Connexion / Mon profil selon l'état de connexion -->
-<div>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-  <script src="./firebase-config.js"></script>
-  <script src="./compte.js"></script>
-  <script>
-    if (typeof CompteParties !== 'undefined' && CompteParties.actif) {
-      CompteParties.onAuth(function (user) {
-        document.getElementById('profilBtn').textContent = user ? '👤 Mon Profil' : '👤 Connexion';
-      });
-    }
-  </script>
-</div>
-  
 <hr style="margin:20px 0;">
 <h2>Pokémon</h2>
 <!-- Boutons -->
@@ -71,10 +55,24 @@ p{
   <a class="button" href="./salon.html" >Mode Multijoueur</a>
   <a class="button" href="./starterRules.html" >Règles</a>
 </div>
-<div>
-  <a class="button" href="./liensPokemon.html" >Liens externes</a>
-</div>
+<a class="button" id="profilBtn" href="./profil.html" >👤 Connexion</a>
+<a class="button" href="./liensPokemon.html" >Liens externes</a>
+
 <hr style="margin:20px 0;">
+
+<!-- Bouton Connexion / Mon profil selon l'état de connexion -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="./firebase-config.js"></script>
+<script src="./compte.js"></script>
+<script>
+  if (typeof CompteParties !== 'undefined' && CompteParties.actif) {
+    CompteParties.onAuth(function (user) {
+      document.getElementById('profilBtn').textContent = user ? '👤 Mon Profil' : '👤 Connexion';
+    });
+  }
+</script>
 
 </body>
 </html>
