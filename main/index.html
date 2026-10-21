@@ -45,8 +45,20 @@ p{
 
 <h1>By FireDarkRP</h1>
 
+<!-- Bouton Connexion / Mon profil selon l'état de connexion -->
 <div>
-  <a class="button" href="./profil.html" >👤 Mon profil / Connexion</a>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+  <script src="./compte.js"></script>
+  <script>
+    if (typeof CompteParties !== 'undefined' && CompteParties.actif) {
+      CompteParties.onAuth(function (user) {
+        document.getElementById('profilBtn').textContent = user ? '👤 Mon Profil' : '👤 Connexion';
+      });
+    }
+  </script>
 </div>
   
 <hr style="margin:20px 0;">
